@@ -10,7 +10,8 @@ const {
   getMe ,// <-- 1. Add this import
   updateUserEmail,
   resetPasswordWithOtp,
-  sendPasswordResetOtp
+  sendPasswordResetOtp,
+  deleteAccount // <-- ADD THIS
 } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
@@ -49,5 +50,8 @@ router.put('/update-email', protect, updateUserEmail);
 // Add the route (Usually near your other OTP routes)
 router.post('/reset-password-otp', resetPasswordWithOtp);
 router.post('/send-reset-otp', sendPasswordResetOtp);
+
+// Danger Zone
+router.delete('/delete-account', protect, deleteAccount);
 
 module.exports = router;

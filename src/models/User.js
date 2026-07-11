@@ -3,45 +3,39 @@ const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
-// --- ENTERPRISE FIX START ---
-email: { 
-  type: String, 
-  required: true, 
-  unique: true, 
-  lowercase: true,
-  trim: true,
-  match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
-},
-password: { 
-  type: String, 
-  required: true, 
-  select: false,
-  minlength: [6, 'Password must be at least 6 characters'] 
-},
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    lowercase: true,
+    trim: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
+  },
+  password: { 
+    type: String, 
+    required: true, 
+    select: false,
+    minlength: [6, 'Password must be at least 6 characters'] 
+  },
   passwordChangedAt: Date,
-  // Role field completely removed!
   createdAt: { type: Date, default: Date.now },
-  // --- NEW FIELD FOR NOTIFICATIONS ---
   expoPushToken: { type: String },
-
-  // 🚨 NEW: Just add the phone number field
   phoneNumber: { 
     type: String, 
     required: true, 
     unique: true 
   },
-
-  // 🚨 ADD THIS NEW FIELD:
   slug: { 
     type: String, 
     unique: true, 
     lowercase: true, 
     trim: true,
-    sparse: true // This prevents errors for your old users who don't have a slug yet!
+    sparse: true 
   },
-
-
-
+  // 🚨 NEW: SOFT DELETE FLAGS
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  accountStatus: { type: String, enum: ['active', 'deleted', 'suspended'], default: 'active' }
 });
 
 UserSchema.pre('save', async function () {
@@ -53,8 +47,5 @@ UserSchema.pre('save', async function () {
 UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
-
-
-
 
 module.exports = mongoose.model('User', UserSchema);

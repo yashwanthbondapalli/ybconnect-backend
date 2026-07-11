@@ -4,6 +4,7 @@ const OTP = require('../models/OTP');
 const sendEmail = require('../utils/emailHelper');
 const crypto = require('crypto');
 const generateUniqueSlug = require('../utils/generateSlug');
+const Profile = require('../models/Profile');
 
 exports.loginUser = async (req, res, next) => {
   try {
@@ -333,5 +334,70 @@ exports.sendPasswordResetOtp = async (req, res) => {
   } catch (error) {
     console.error("Reset OTP Error:", error);
     res.status(500).json({ success: false, error: 'Failed to send reset OTP.' });
+  }
+};
+
+// @desc    Soft delete user account & anonymize data
+// @route   DELETE /api/v1/auth/delete-account
+// @access  Private
+exports.deleteAccount = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Generate a random suffix to preserve unique constraints (email/phone)
+    const randomSuffix = crypto.randomBytes(4).toString('hex');
+
+    // 1. Anonymize the User Document
+    user.name = "Deleted User";
+    user.email = `deleted_${userId}_${randomSuffix}@ybconnect.in`;
+    user.phoneNumber = `deleted_${userId}_${randomSuffix}`;
+    user.slug = `deleted_${userId}_${randomSuffix}`;
+    user.expoPushToken = undefined;
+    
+    // Scramble password so they can never log back in
+    user.password = crypto.randomBytes(20).toString('hex');
+
+    // Apply Soft Delete Flags
+    user.isDeleted = true;
+    user.deletedAt = Date.now();
+    user.accountStatus = 'deleted';
+
+    await user.save();
+
+    // 2. Anonymize the Profile Document
+    await Profile.findOneAndUpdate(
+      { user: userId },
+      {
+        $set: {
+          phoneNumber: '',
+          category: '',
+          city: '',
+          companyName: '',
+          designation: '',
+          bio: '',
+          skills: [],
+          languages: [],
+          experience: '',
+          achievements: '',
+          profileImage: 'default-avatar.png',
+          socialLinks: { linkedin: '', instagram: '', xUrl: '', website: '' },
+          zoomCredentials: { accessToken: '', refreshToken: '', accountId: '', isConnected: false }
+        }
+      }
+    );
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Account securely deleted and anonymized.' 
+    });
+
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    res.status(500).json({ success: false, error: 'Failed to delete account' });
   }
 };

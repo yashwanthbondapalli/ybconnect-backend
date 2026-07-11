@@ -84,6 +84,19 @@ exports.updateRequestStatus = async (req, res, next) => {
        return res.status(400).json({ success: false, error: `This request is already ${callRequest.status}.` });
     }
 
+    // 🚨 NEW 10-MINUTE BUFFER CHECK (For Experts accepting sessions)
+    if (isRecipient && status === 'accepted' && scheduledAt) {
+      const scheduledTimeMs = new Date(scheduledAt).getTime();
+      const tenMinsFromNowMs = Date.now() + (10 * 60 * 1000);
+      
+      if (scheduledTimeMs < tenMinsFromNowMs) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Instant sessions must be scheduled at least 10 minutes in the future to allow payment processing.' 
+        });
+      }
+    }
+
     // 4. Update basic fields
     callRequest.status = status;
     if (scheduledAt) callRequest.scheduledAt = scheduledAt;

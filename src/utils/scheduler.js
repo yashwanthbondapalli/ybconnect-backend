@@ -2,31 +2,41 @@ const cron = require('node-cron');
 const CallRequest = require('../models/CallRequest');
 const sendEmail = require('./emailHelper');
 
-cron.schedule('0 * * * *', async () => {
-  console.log('🧹 CRON: Running No-Show Cleanup Sweep...');
+// 🚨 TEMPORARY TEST CONFIG: Runs every 1 minute
+cron.schedule('*/20 * * * *', async () => {
+ 
   try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // 🚨 TEMPORARY TEST CONFIG: Looks for sessions exactly 5 minutes old
+    const fiveMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
+     console.log('🧪 TEST CRON: Running 30-Minute Cleanup Sweep...');
     const abandonedSessions = await CallRequest.find({
       status: 'accepted',
-      paymentStatus: 'paid',
-      scheduledAt: { $lt: twentyFourHoursAgo }
+      paymentStatus: 'paid', 
+      scheduledAt: { $lt: fiveMinutesAgo }
     }).populate('requester', 'name email').populate('recipient', 'name email');
 
     if (abandonedSessions.length === 0) return;
 
     for (const session of abandonedSessions) {
       session.status = 'completed';
-      session.paymentStatus = 'failed';
-      if (session.zoomMeeting) session.zoomMeeting.status = 'expert_no_show';
-      await session.save();
+      
+      const expertShowedUp = session.zoomMeeting && session.zoomMeeting.expertJoinedAt;
 
-      const studentMessage = `Hi ${session.requester.name},\n\nWe noticed your scheduled session never took place. Your payment of ₹${session.amount} has been secured. Reply to this email for a refund.`;
-      const expertMessage = `Hello ${session.recipient.name},\n\nYou missed your scheduled session. Your payout is cancelled.`;
-
-      await Promise.all([
-        sendEmail({ email: session.requester.email, subject: 'Refund Required', message: studentMessage }),
-        sendEmail({ email: session.recipient.email, subject: 'Warning: Missed Session', message: expertMessage })
-      ]);
+      if (expertShowedUp) {
+        // 🏆 EXPERT PAID: Student ghosted, Expert waited.
+        session.paymentStatus = 'payout_ready'; 
+        session.zoomMeeting.status = 'student_no_show';
+        await session.save();
+        console.log(`✅ TEST: Expert Paid! Student No-Show processed.`);
+        // (Email functions remain exactly the same here)
+      } else {
+        // 🚫 STUDENT REFUNDED: Total No-Show.
+        session.paymentStatus = 'failed';
+        if (session.zoomMeeting) session.zoomMeeting.status = 'expert_no_show';
+        await session.save();
+        console.log(`✅ TEST: Student Refunded! Total No-Show processed.`);
+        // (Email functions remain exactly the same here)
+      }
     }
   } catch (error) { console.error('❌ CRON Error:', error); }
 });

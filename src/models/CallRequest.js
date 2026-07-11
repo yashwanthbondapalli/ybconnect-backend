@@ -27,6 +27,7 @@ const CallRequestSchema = new mongoose.Schema({
     joinUrl: { type: String },  // The Student's Guest link
     expertJoinedAt: { type: Date },
     studentJoinedAt: { type: Date },
+    lastParticipantJoinTime: { type: Date }, // 👈 ADD THIS NEW LINE!
     durationSeconds: { type: Number, default: 0 },
     actualDurationMinutes: { type: Number, default: 0 }, // ✅ NEW FIELD,
     status: { 

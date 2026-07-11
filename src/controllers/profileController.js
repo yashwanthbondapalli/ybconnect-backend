@@ -43,29 +43,28 @@ exports.upsertProfile = async (req, res, next) => {
       achievements, 
       hourlyRate, 
       profileImage, 
-      socialLinks
+      socialLinks,
+      upiId // 🚨 1. NEW: Extract upiId from the frontend request!
     } = req.body;
 
-// 🚨 UPGRADED FIX: Update Name AND dynamically regenerate the Slug
+    // 🚨 UPGRADED FIX: Update Name AND dynamically regenerate the Slug
     if (name && name.trim() !== '') {
       const cleanName = name.trim();
       const currentUser = await User.findById(req.user.id);
       
-      // Only generate a new slug if they ACTUALLY changed their name (or if a slug is missing)
-      // This prevents the system from making "-1", "-2" versions every time they save their bio!
       if (currentUser.name !== cleanName || !currentUser.slug) {
         const newSlug = await generateUniqueSlug(cleanName);
         
         await User.findByIdAndUpdate(req.user.id, { 
           name: cleanName,
-          slug: newSlug // Save the fresh slug to the database
+          slug: newSlug 
         });
         
         console.log(`🔄 Profile Name changed! New slug generated: ${newSlug}`);
       }
     }
 
-    // 2. Build the profile object (Notice we completely removed name from here)
+    // 2. Build the profile object
     const profileFields = {
       user: req.user.id,
       designation,
@@ -79,6 +78,9 @@ exports.upsertProfile = async (req, res, next) => {
       hourlyRate: Number(hourlyRate) || 0,
       profileImage: profileImage || 'default-avatar.png',
     };
+
+    // 🚨 2. NEW: Attach upiId securely to the MongoDB object
+    if (upiId && upiId.trim() !== '') profileFields.upiId = upiId.trim();
 
     if (phoneNumber && phoneNumber.trim() !== '') profileFields.phoneNumber = phoneNumber;
 
@@ -96,7 +98,6 @@ exports.upsertProfile = async (req, res, next) => {
     }
 
     // 5. Save to MongoDB
-    // 🚨 THE FIX: Added .populate() at the end so the app instantly gets the new name back!
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileFields },
@@ -110,54 +111,47 @@ exports.upsertProfile = async (req, res, next) => {
   }
 };
 
-// @desc    Get profile by user ID
+// @desc    Get profile by user ID (Public View)
 exports.getProfileByUserId = async (req, res, next) => {
   try {
-    const profile = await Profile.findOne({
-      user: req.params.userId
-    }).populate('user', ['name', 'email']);
+    const profile = await Profile.findOne({ user: req.params.userId })
+      // 🚨 SECURITY FIX: Exclude sensitive financial data from public view
+      .select('-upiId') 
+      // 🚨 SECURITY FIX: Only grab public info from the User model (no email/phone)
+      .populate('user', 'name slug'); 
 
     if (!profile) {
-      return res.status(404).json({
-        success: false,
-        error: 'Profile not found for this user'
-      });
+      return res.status(404).json({ success: false, error: 'Profile not found for this user' });
     }
 
-    res.status(200).json({
-      success: true,
-      data: profile
-    });
-
+    res.status(200).json({ success: true, data: profile });
   } catch (error) {
     next(error);
   }
 };
 
 
-
+// @desc    Get profile by slug (Public View for Web/App)
 exports.getProfileBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
 
-    // 1. Find the User using the unique slug
     const user = await User.findOne({ slug }).select('-password');
-    
     if (!user) {
       return res.status(404).json({ success: false, message: 'Expert not found' });
     }
 
-    // 2. Fetch the rich Profile data using that User's _id
-    // We use .populate('user') so the frontend gets the slug and email attached to it!
-    const profile = await Profile.findOne({ user: user._id }).populate('user', 'name email phoneNumber slug');
+    const profile = await Profile.findOne({ user: user._id })
+      // 🚨 SECURITY FIX: Exclude UPI ID
+      .select('-upiId') 
+      // 🚨 SECURITY FIX: Do not leak email or phone number to the public!
+      .populate('user', 'name slug'); 
 
-    // 3. Fallback: If they registered but haven't gone through ProfileSetupScreen yet
     if (!profile) {
       return res.status(200).json({ 
         success: true, 
         data: {
-          user: user,
-          name: user.name,
+          user: { name: user.name, slug: user.slug },
           designation: 'New Expert',
           bio: 'This expert is still setting up their profile.',
           skills: [],
@@ -168,14 +162,40 @@ exports.getProfileBySlug = async (req, res) => {
       });
     }
 
-    // 4. Send the complete, rich profile back to the app
-    res.status(200).json({ 
-      success: true, 
-      data: profile 
-    });
-
+    res.status(200).json({ success: true, data: profile });
   } catch (error) {
     console.error("Error fetching profile by slug:", error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Toggle Live Status (Instant Solver)
+exports.toggleLiveStatus = async (req, res, next) => {
+  try {
+    const { isLive, status } = req.body;
+    
+    // Automatically set status based on the toggle if not explicitly provided
+    const newStatus = status || (isLive ? 'available' : 'offline');
+
+    const profile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      { 
+        $set: { 
+          isLive: isLive, 
+          liveConnectionStatus: newStatus,
+          lastActiveAt: Date.now() // Refreshes their heartbeat
+        } 
+      },
+      { new: true }
+    ).populate('user', 'name email slug');
+
+    if (!profile) {
+      return res.status(404).json({ success: false, error: 'Profile not found' });
+    }
+
+    res.status(200).json({ success: true, data: profile });
+  } catch (error) {
+    console.error("Live Toggle Error:", error);
+    res.status(500).json({ success: false, message: 'Server error while toggling live status' });
   }
 };

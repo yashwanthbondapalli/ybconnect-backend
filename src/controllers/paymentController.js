@@ -34,6 +34,33 @@ exports.createOrder = async (req, res, next) => {
       });
     }
 
+    // ==========================================
+    // 🚨 CATALINA ZOOM REVIEW BYPASS (DELETE AFTER APPROVAL)
+    // ==========================================
+    if (Number(callRequest.amount) === 1) {
+      console.log("⚡ Catalina Review Bypass Activated!");
+      const zoomDetails = await zoomHelper.createZoomMeeting(
+        callRequest.recipient, 
+        callRequest.topic, 
+        callRequest.scheduledAt, 
+        60 // Default 60 mins
+      );
+
+      callRequest.zoomMeeting = {
+        meetingId: zoomDetails.meetingId,
+        startUrl: zoomDetails.startUrl,
+        joinUrl: zoomDetails.joinUrl,
+        status: 'waiting'
+      };
+      
+      callRequest.paymentStatus = 'paid';
+      await callRequest.save();
+
+      // Return a special flag to tell the frontend to stop
+      return res.status(200).json({ success: true, bypassed: true });
+    }
+    // ==========================================
+
     // Fetch the Expert's Profile to get their routing ID
     const expertProfile = await Profile.findOne({ user: callRequest.recipient });
 

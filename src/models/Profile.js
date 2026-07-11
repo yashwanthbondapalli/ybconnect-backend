@@ -44,11 +44,33 @@ const ProfileSchema = new mongoose.Schema({
     isConnected: { type: Boolean, default: false }
   },
 
-  razorpayAccountId: { type: String, default: null },
-  isPayoutActive: { type: Boolean, default: false },
-  accountNumber: { type: String }, 
-  ifscCode: { type: String },      
+// 🚨 NEW: Simple UPI ID for weekend payouts
+  upiId: { type: String, trim: true },
+  
+  
+  // 🚨 INSTANT SOLVER FIELDS
+  isLive: { type: Boolean, default: false },
+  lastActiveAt: { type: Date, default: Date.now },
+  liveConnectionStatus: { 
+    type: String, 
+    enum: ['available', 'in_call', 'offline'], 
+    default: 'offline' 
+  },
+  
+
   
 }, { timestamps: true });
+
+// 🚨 THE SECURITY PATCH: Automatically strip sensitive tokens before sending to the frontend
+ProfileSchema.set('toJSON', {
+  transform: function (doc, ret, options) {
+    if (ret.zoomCredentials) {
+      delete ret.zoomCredentials.accessToken;
+      delete ret.zoomCredentials.refreshToken;
+    }
+    // Note: We leave 'isConnected' and 'accountId' so the frontend still works!
+    return ret;
+  }
+});
 
 module.exports = mongoose.model('Profile', ProfileSchema);
