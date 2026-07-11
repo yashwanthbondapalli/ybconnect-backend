@@ -1,0 +1,502 @@
+[
+  {
+    "canonicalName": "Optoelectronics",
+    "aliases": ["photonics", "lasers", "leds", "photodetectors", "optical engineering"],
+    "category": "Nanotechnology & Advanced Materials"
+  },
+  {
+    "canonicalName": "Micro-Electromechanical Systems (MEMS)",
+    "aliases": ["mems", "micromachining", "mems sensors", "actuators"],
+    "category": "Nanotechnology & Advanced Materials"
+  },
+  {
+    "canonicalName": "Nano-Electromechanical Systems (NEMS)",
+    "aliases": ["nems", "nanoscale devices", "nanofabrication"],
+    "category": "Nanotechnology & Advanced Materials"
+  },
+  {
+    "canonicalName": "Solid State Device Physics",
+    "aliases": ["device physics", "semiconductor theory", "band theory", "pn junctions"],
+    "category": "Nanotechnology & Advanced Materials"
+  },
+  {
+    "canonicalName": "Photovoltaics",
+    "aliases": ["solar cells", "solar energy", "pv systems", "renewable energy electronics"],
+    "category": "Nanotechnology & Advanced Materials"
+  },
+  {
+    "canonicalName": "Flexible Electronics",
+    "aliases": ["printed electronics", "wearables", "flexible circuits", "organic electronics"],
+    "category": "Hardware & Circuits"
+  },
+  {
+    "canonicalName": "Mixed-Signal IC Design",
+    "aliases": ["mixed signal", "analog/digital integration", "data converters", "adc", "dac"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Phase-Locked Loops (PLL)",
+    "aliases": ["pll", "frequency synthesizers", "clock generation", "vco"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Static Timing Analysis (STA)",
+    "aliases": ["sta", "prime time", "timing closure", "setup and hold"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Logic Synthesis",
+    "aliases": ["synthesis", "design compiler", "rtl to gate", "netlist generation"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Design for Testability (DFT)",
+    "aliases": ["dft", "scan chains", "atpg", "bist", "jtag"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Advanced IC Packaging",
+    "aliases": ["3d ic", "2.5d packaging", "tsvs", "system in package", "sip"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Silicon Photonics",
+    "aliases": ["pic", "photonic integrated circuits", "optical interconnects"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Automatic Test Equipment (ATE)",
+    "aliases": ["ate", "production testing", "teradyne", "advantest", "wafer probing"],
+    "category": "Testing & Instrumentation"
+  },
+  {
+    "canonicalName": "Oscilloscope Operation",
+    "aliases": ["oscilloscopes", "dso", "waveform analysis", "hardware debugging"],
+    "category": "Testing & Instrumentation"
+  },
+  {
+    "canonicalName": "Spectrum Analysis",
+    "aliases": ["spectrum analyzers", "frequency domain analysis", "rf testing"],
+    "category": "Testing & Instrumentation"
+  },
+  {
+    "canonicalName": "Vector Network Analysis",
+    "aliases": ["vna", "network analyzers", "s-parameter measurement"],
+    "category": "Testing & Instrumentation"
+  },
+  {
+    "canonicalName": "Power Integrity (PI)",
+    "aliases": ["pi", "pdn design", "power delivery networks", "decoupling"],
+    "category": "Hardware & Circuits"
+  },
+  {
+    "canonicalName": "Thermal Management",
+    "aliases": ["heatsinks", "thermal design", "dissipation", "cooling systems"],
+    "category": "Hardware & Circuits"
+  },
+  {
+    "canonicalName": "Massive MIMO",
+    "aliases": ["mimo", "multiple input multiple output", "spatial multiplexing", "beamforming"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Cognitive Radio",
+    "aliases": ["dynamic spectrum access", "spectrum sensing", "crn"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Millimeter Wave (mmWave)",
+    "aliases": ["mmwave", "e-band", "v-band", "high-frequency comms", "5g mmwave"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Terahertz Communications",
+    "aliases": ["thz comms", "sub-millimeter wave", "6g technologies"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Ultra-Wideband (UWB)",
+    "aliases": ["uwb", "short-range comms", "indoor positioning", "pulse radio"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "LoRaWAN",
+    "aliases": ["lora", "lpwan", "low power wide area network", "long range"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Zigbee and Z-Wave",
+    "aliases": ["zigbee", "z-wave", "ieee 802.15.4", "home automation protocols"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "RFID and NFC",
+    "aliases": ["rfid", "nfc", "near field communication", "contactless"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Free Space Optics (FSO)",
+    "aliases": ["fso", "optical wireless", "lifi", "visible light communication"],
+    "category": "Communications & Networking"
+  },
+  {
+    "canonicalName": "Automotive Electronics",
+    "aliases": ["can bus", "lin bus", "flexray", "ecu", "autosar"],
+    "category": "Automotive & Industrial"
+  },
+  {
+    "canonicalName": "Electric Vehicle (EV) Electronics",
+    "aliases": ["ev powertrain", "motor controllers", "inverters", "charging infrastructure"],
+    "category": "Automotive & Industrial"
+  },
+  {
+    "canonicalName": "Battery Management Systems (BMS)",
+    "aliases": ["bms", "battery balancing", "soc estimation", "soh"],
+    "category": "Automotive & Industrial"
+  },
+  {
+    "canonicalName": "Avionics",
+    "aliases": ["aerospace electronics", "flight control systems", "arinc", "mil-std-1553"],
+    "category": "Automotive & Industrial"
+  },
+  {
+    "canonicalName": "Industrial Internet of Things (IIoT)",
+    "aliases": ["iiot", "industry 4.0", "machine-to-machine", "m2m"],
+    "category": "Automotive & Industrial"
+  },
+  {
+    "canonicalName": "Smart Grid Communications",
+    "aliases": ["smart grids", "ami", "smart meters", "power line communication"],
+    "category": "Automotive & Industrial"
+  },
+  {
+    "canonicalName": "Embedded Cybersecurity",
+    "aliases": ["iot security", "embedded security", "secure boot", "trusted execution environment"],
+    "category": "Security & Reliability"
+  },
+  {
+    "canonicalName": "Hardware Security",
+    "aliases": ["pufs", "physically unclonable functions", "side-channel attacks", "hardware trojans"],
+    "category": "Security & Reliability"
+  },
+  {
+    "canonicalName": "Cryptographic Hardware Accelerators",
+    "aliases": ["crypto accelerators", "aes engines", "rsa hardware", "elliptic curve hardware"],
+    "category": "Security & Reliability"
+  },
+  {
+    "canonicalName": "Reliability Engineering",
+    "aliases": ["mtbf", "fit", "fmea", "bathtub curve", "environmental testing"],
+    "category": "Security & Reliability"
+  },
+  {
+    "canonicalName": "Failure Analysis",
+    "aliases": ["fa", "sem", "edx", "x-ray inspection", "root cause analysis"],
+    "category": "Security & Reliability"
+  },
+  {
+    "canonicalName": "Quality Management Systems",
+    "aliases": ["six sigma", "iso 9001", "lean manufacturing", "statistical process control", "spc"],
+    "category": "Security & Reliability"
+  },
+  {
+    "canonicalName": "SPICE Simulation",
+    "aliases": ["ltspice", "pspice", "ngspice", "hspice", "circuit simulation"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "TCAD (Technology Computer-Aided Design)",
+    "aliases": ["tcad", "sentaurus", "silvaco", "device simulation", "process simulation"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "Tcl/Tk Scripting",
+    "aliases": ["tcl", "eda scripting", "tool automation"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "Perl Scripting",
+    "aliases": ["perl", "text processing", "vlsi scripting", "automation scripts"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "GNU Octave / Scilab",
+    "aliases": ["octave", "scilab", "open-source math tools", "numerical computing"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "High-Speed Serial Interfaces",
+    "aliases": ["pcie", "sata", "usb 3.0", "serdes", "hdmi", "displayport"],
+    "category": "Hardware & Circuits"
+  },
+  {
+    "canonicalName": "Audio Amplifier Design",
+    "aliases": ["class a", "class ab", "class d amplifiers", "audio engineering"],
+    "category": "Hardware & Circuits"
+  },
+  {
+    "canonicalName": "Quantum Computing Hardware",
+    "aliases": ["superconducting qubits", "trapped ions", "quantum circuits", "cryogenic electronics"],
+    "category": "Nanotechnology & Advanced Materials"
+  },
+  {
+    "canonicalName": "Hardware-in-the-Loop (HIL) Testing",
+    "aliases": ["hil", "dspace", "system validation", "real-time simulation"],
+    "category": "Testing & Instrumentation"
+  },
+  {
+    "canonicalName": "Engineering Ethics & Standards",
+    "aliases": ["ieee standards", "iso compliance", "fcc regulations", "ce marking"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "VLSI Design",
+    "aliases": ["vlsi", "very large scale integration", "chip design", "ic design"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Application-Specific Integrated Circuit (ASIC) Design",
+    "aliases": ["asic", "asic design flow", "custom ic"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "System on Chip (SoC) Design",
+    "aliases": ["soc", "system on a chip", "arm cortex"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "CMOS Technology",
+    "aliases": ["cmos", "mosfet", "semiconductor physics", "semiconductor devices"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Electronic Design Automation (EDA) Tools",
+    "aliases": ["eda", "synopsys", "cadence", "mentor graphics"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Digital Logic Design",
+    "aliases": ["digital electronics", "logic gates", "boolean algebra", "digital circuits"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Physical Design",
+    "aliases": ["pd", "floorplanning", "placement and routing", "pnr", "clock tree synthesis"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Analog Integrated Circuit Design",
+    "aliases": ["analog ic", "op-amps", "mixed-signal design", "cmos analog"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "IC Testing and Verification",
+    "aliases": ["design verification", "dft", "design for testability", "uvm", "ic testing"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "FPGA Prototyping",
+    "aliases": ["fpga", "field programmable gate array", "xilinx", "altera"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Embedded Systems",
+    "aliases": ["embedded design", "microcontrollers", "embedded hardware"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Internet of Things (IoT)",
+    "aliases": ["iot", "smart devices", "nodemcu", "sensor networks"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Microprocessors & Microcontrollers",
+    "aliases": ["8051", "arm", "pic", "avr", "microprocessor architecture"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Real-Time Operating Systems (RTOS)",
+    "aliases": ["rtos", "freertos", "vxworks", "qnx"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Firmware Development",
+    "aliases": ["firmware", "bare-metal programming", "bootloaders"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Embedded C/C++",
+    "aliases": ["embedded c", "embedded cpp", "low-level programming"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Sensor Interfacing & Protocols",
+    "aliases": ["i2c", "spi", "uart", "can bus", "usb", "serial communication"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Edge Computing",
+    "aliases": ["edge ai", "tinyml", "local processing", "fog computing"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Printed Circuit Board (PCB) Design",
+    "aliases": ["pcb layout", "altium designer", "eagle", "kicad", "orcad"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Digital Signal Processing (DSP)",
+    "aliases": ["dsp", "discrete time signals", "z-transform", "fourier transform"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Analog Signal Processing",
+    "aliases": ["asp", "filters", "continuous time signals", "amplifiers"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Digital Image Processing",
+    "aliases": ["image processing", "dip", "spatial filtering", "image segmentation"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Speech and Audio Processing",
+    "aliases": ["audio dsp", "speech recognition", "acoustics", "voice processing"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Radar Signal Processing",
+    "aliases": ["radar", "sonar", "doppler effect", "target tracking"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Biomedical Signal Processing",
+    "aliases": ["ecg processing", "eeg", "biomedical instrumentation", "medical imaging"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Digital Communication Systems",
+    "aliases": ["digital comms", "modulation", "qam", "psk", "fsk", "error coding"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Analog Communication Systems",
+    "aliases": ["analog comms", "am", "fm", "pm", "broadcasting"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Wireless Communications",
+    "aliases": ["5g", "4g lte", "cellular networks", "wi-fi", "bluetooth"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Optical Fiber Communication",
+    "aliases": ["fiber optics", "wdm", "photonics", "optical networks"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "RF Engineering",
+    "aliases": ["radio frequency", "rf design", "rf circuits", "transceivers"],
+    "category": "RF & Electromagnetics"
+  },
+  {
+    "canonicalName": "Antenna Theory and Design",
+    "aliases": ["antennas", "cst microwave studio", "hfss", "radiation patterns", "phased arrays"],
+    "category": "RF & Electromagnetics"
+  },
+  {
+    "canonicalName": "Satellite Communications",
+    "aliases": ["satcom", "vsat", "gnss", "gps", "telemetry"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Microwave Engineering",
+    "aliases": ["microwaves", "waveguides", "s-parameters", "transmission lines"],
+    "category": "RF & Electromagnetics"
+  },
+  {
+    "canonicalName": "Computer Networking",
+    "aliases": ["tcp/ip", "osi model", "routers", "switches", "lan/wan"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Telecommunication Protocols",
+    "aliases": ["sip", "voip", "ss7", "telecom networking"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Software Defined Radio (SDR)",
+    "aliases": ["sdr", "gnu radio", "usrp", "cognitive radio"],
+    "category": "Communications"
+  },
+  {
+    "canonicalName": "Control Systems Engineering",
+    "aliases": ["control theory", "pid controllers", "feedback loops", "root locus"],
+    "category": "Control Systems"
+  },
+  {
+    "canonicalName": "Automation and Robotics",
+    "aliases": ["robotics", "ros", "kinematics", "industrial automation"],
+    "category": "Control Systems"
+  },
+  {
+    "canonicalName": "Power Electronics",
+    "aliases": ["power devices", "inverters", "smps", "dc-dc converters"],
+    "category": "Control Systems"
+  },
+  {
+    "canonicalName": "PLC & SCADA",
+    "aliases": ["programmable logic controllers", "ladder logic", "scada systems", "hmi"],
+    "category": "Control Systems"
+  },
+  {
+    "canonicalName": "MATLAB & Simulink",
+    "aliases": ["matlab", "simulink", "mathematical modeling", "system simulation"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "LabVIEW",
+    "aliases": ["labview", "national instruments", "ni", "virtual instrumentation"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "Python for Hardware Automation",
+    "aliases": ["python scripting", "pyserial", "micropython", "automated testing"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "C/C++ Programming",
+    "aliases": ["c", "c++", "cpp", "systems programming", "memory management"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "Machine Learning in ECE",
+    "aliases": ["ml for signal processing", "predictive maintenance", "ai in hardware"],
+    "category": "Software & Tools"
+  },
+  {
+    "canonicalName": "Hardware Description Languages (HDL)",
+    "aliases": ["verilog", "vhdl", "systemverilog", "rtl coding"],
+    "category": "VLSI & Microelectronics"
+  },
+  {
+    "canonicalName": "Artificial Intelligence of Things (AIoT)",
+    "aliases": ["aiot", "smart sensors", "intelligent edge"],
+    "category": "Embedded Systems"
+  },
+  {
+    "canonicalName": "Computer Vision",
+    "aliases": ["cv", "opencv", "machine vision", "image recognition"],
+    "category": "Signal Processing"
+  },
+  {
+    "canonicalName": "Signal Integrity",
+    "aliases": ["si", "power integrity", "pi", "high-speed design", "crosstalk"],
+    "category": "RF & Electromagnetics"
+  },
+  {
+    "canonicalName": "Electromagnetic Compatibility (EMC)",
+    "aliases": ["emc", "emi", "electromagnetic interference", "shielding"],
+    "category": "RF & Electromagnetics"
+  }
+]
