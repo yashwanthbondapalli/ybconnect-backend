@@ -18,6 +18,8 @@ const zoomRoutes = require('./src/routes/zoomRoutes'); // Adjust path if necessa
 // 1. Import the route file at the top with your others
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
+const reviewerRoutes = require('./src/modules/resume-reviewer/routes/reviewer.routes.js')
+
 const app = express();
 // 🚨 GLOBAL LIGHT SWITCH: Log every single request that hits the server
 // 🚨 UPDATED GLOBAL LIGHT SWITCH: Log incoming request headers
@@ -66,6 +68,9 @@ app.use('/api/v1/profile', profileRoutes);
 // Add to your existing routes in server.js
 const expertRoutes = require('./src/routes/expertRoutes');
 app.use('/api/v1/experts', expertRoutes);
+
+// 2. Mount it to match the exact URL your frontend is hitting
+app.use('/api/v1/resume-reviewer', reviewerRoutes);
 
 const requestRoutes = require('./src/routes/requestRoutes');
 app.use('/api/v1/requests', requestRoutes);
