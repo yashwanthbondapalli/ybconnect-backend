@@ -1,65 +1,77 @@
 const mongoose = require('mongoose');
 
 const ProfileSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    unique: true 
-  },
-  
-  // NOTE: 'name' and 'phoneNumber' are kept here so we don't break your existing database,
-  // even though they also exist on the User model.
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   phoneNumber: { type: String, trim: true },
-
-  category: { type: String, trim: true },
-  city: { type: String, trim: true }, // 🚨 NEW
-  companyName: { type: String, trim: true }, // 🚨 NEW
+  
+  // -- BASIC IDENTITY --
   designation: { type: String, maxLength: 100 }, 
-  bio: { type: String, maxLength: 500 }, 
+  companyName: { type: String, trim: true }, 
+  shortDescription: { type: String, maxLength: 150 }, // 👈 NEW: The text right under the name
+  city: { type: String, trim: true },
+  category: { type: String, trim: true }, 
+  
+  // -- THE TWO-COLUMN INTRO --
+  bio: { type: String, maxLength: 800 }, // "About Me"
+  whyBookMe: { type: String, maxLength: 800 }, // 👈 NEW: Right column text
+  
+  // -- CHIPS & WIDGETS (ARRAYS) --
   skills: { type: [String], default: [] },
-  languages: { type: [String], default: [] }, // 🚨 NEW
-  experience: { type: String }, 
-  yearsOfExperience: { type: Number, default: 0 }, // 🚨 NEW
+  languages: { type: [String], default: [] }, 
+  industries: { type: [String], default: [] }, // 👈 NEW: e.g., ["SaaS", "EdTech"]
+  lookingFor: { type: [String], default: [] }, // 👈 NEW: e.g., ["Clients", "Co-founders"]
+  
+  // -- STRUCTURED SECTIONS --
+  // 👈 NEW: Replaces the flat string 'experience'
+  experience: [{ 
+    role: String,
+    company: String,
+    duration: String, // e.g., "2021 - 2023"
+    description: String
+  }],
+  
+  // 👈 NEW: Services Grid
+  servicesOffered: [{
+    title: String,
+    icon: String // e.g., "rocket", "mobile", "code"
+  }],
+
+  // 👈 NEW: Portfolio Horizontal Scroll
+  portfolio: [{
+    title: String,
+    description: String,
+    tag: String, // e.g., "Mobile App", "Web App"
+    imageUrl: String,
+    link: String
+  }],
+
+  // -- LOGISTICS & METRICS --
+  yearsOfExperience: { type: Number, default: 0 }, 
+  hourlyRate: { type: Number, default: 0, min: 0 },
+  
+  // 👈 NEW: Availability Widget
+  availability: {
+    workingDays: { type: String, default: 'Mon - Fri' },
+    workingHours: { type: String, default: '10:00 AM - 6:00 PM' },
+    timezone: { type: String, default: '(GMT +05:30) IST' },
+    avgResponseTime: { type: String, default: 'Usually replies in 24 hours' }
+  },
+
+  // -- EXISTING SYSTEM FIELDS --
   achievements: { type: String }, 
-  hourlyRate: { 
-    type: Number, 
-    default: 0,
-    min: [0, 'Hourly rate cannot be negative'] 
-  },
   profileImage: { type: String, default: 'default-avatar.png' },
-
-  // 🚨 NEW: Social Links Object
-  socialLinks: {
-    linkedin: { type: String },
-    instagram: { type: String },
-    xUrl: { type: String },
-    website: { type: String }
-  },
-
-  zoomCredentials: {
-    accessToken: { type: String },
-    refreshToken: { type: String },
-    accountId: { type: String },
-    isConnected: { type: Boolean, default: false }
-  },
-
-// 🚨 NEW: Simple UPI ID for weekend payouts
+  socialLinks: { linkedin: String, instagram: String, xUrl: String, website: String },
+  zoomCredentials: { accessToken: String, refreshToken: String, accountId: String, isConnected: { type: Boolean, default: false } },
   upiId: { type: String, trim: true },
   
-  
-  // 🚨 INSTANT SOLVER FIELDS
+  // -- INSTANT SOLVER --
   isLive: { type: Boolean, default: false },
   lastActiveAt: { type: Date, default: Date.now },
-  liveConnectionStatus: { 
-    type: String, 
-    enum: ['available', 'in_call', 'offline'], 
-    default: 'offline' 
-  },
-  
+  liveConnectionStatus: { type: String, enum: ['available', 'in_call', 'offline'], default: 'offline' },
 
-  
 }, { timestamps: true });
+
+// (Keep your existing toJSON transform for security)
 
 // 🚨 THE SECURITY PATCH: Automatically strip sensitive tokens before sending to the frontend
 ProfileSchema.set('toJSON', {

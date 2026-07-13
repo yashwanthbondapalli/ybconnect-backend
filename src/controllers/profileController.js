@@ -27,24 +27,12 @@ exports.getCurrentUserProfile = async (req, res, next) => {
 // @desc    Create or Update Profile
 exports.upsertProfile = async (req, res, next) => {
   try {
-    // 1. Grab everything coming from the mobile app
     const {
-      name,
-      phoneNumber,
-      designation, 
-      companyName, 
-      category, 
-      city, 
-      bio, 
-      skills, 
-      experience, 
-      yearsOfExperience, 
-      languages, 
-      achievements, 
-      hourlyRate, 
-      profileImage, 
-      socialLinks,
-      upiId // 🚨 1. NEW: Extract upiId from the frontend request!
+      name, phoneNumber, designation, companyName, 
+      shortDescription, whyBookMe, category, city, bio, 
+      skills, industries, lookingFor, experience, servicesOffered, portfolio, availability,
+      yearsOfExperience, languages, achievements, hourlyRate, 
+      profileImage, socialLinks, upiId
     } = req.body;
 
     // 🚨 UPGRADED FIX: Update Name AND dynamically regenerate the Slug
@@ -65,39 +53,40 @@ exports.upsertProfile = async (req, res, next) => {
     }
 
     // 2. Build the profile object
-    const profileFields = {
+const profileFields = {
       user: req.user.id,
-      designation,
-      companyName,     
-      category,
-      city,            
-      bio,
-      experience,
+      designation, companyName, shortDescription, whyBookMe,
+      category, city, bio,
       yearsOfExperience: Number(yearsOfExperience) || 0, 
       achievements,
       hourlyRate: Number(hourlyRate) || 0,
       profileImage: profileImage || 'default-avatar.png',
     };
 
-    // 🚨 2. NEW: Attach upiId securely to the MongoDB object
-    if (upiId && upiId.trim() !== '') profileFields.upiId = upiId.trim();
-
+  if (upiId && upiId.trim() !== '') profileFields.upiId = upiId.trim();
     if (phoneNumber && phoneNumber.trim() !== '') profileFields.phoneNumber = phoneNumber;
+    if (availability) profileFields.availability = availability;
 
-    // 3. Handle Arrays (Skills & Languages)
+    // Handle Arrays & Objects securely
     if (skills) profileFields.skills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
     if (languages) profileFields.languages = Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim()); 
+    if (industries) profileFields.industries = Array.isArray(industries) ? industries : industries.split(',').map(i => i.trim()); 
+    if (lookingFor) profileFields.lookingFor = Array.isArray(lookingFor) ? lookingFor : lookingFor.split(',').map(l => l.trim()); 
 
-    // 4. Handle Social Links Object 
+    // Handle Structured Arrays (Expect these to be passed as JSON strings if using FormData, or standard Arrays if JSON)
+    if (experience) profileFields.experience = typeof experience === 'string' ? JSON.parse(experience) : experience;
+    if (servicesOffered) profileFields.servicesOffered = typeof servicesOffered === 'string' ? JSON.parse(servicesOffered) : servicesOffered;
+    if (portfolio) profileFields.portfolio = typeof portfolio === 'string' ? JSON.parse(portfolio) : portfolio;
+
     if (socialLinks) {
-      profileFields.socialLinks = {};
-      if (socialLinks.linkedin) profileFields.socialLinks.linkedin = socialLinks.linkedin;
-      if (socialLinks.instagram) profileFields.socialLinks.instagram = socialLinks.instagram;
-      if (socialLinks.xUrl) profileFields.socialLinks.xUrl = socialLinks.xUrl;
-      if (socialLinks.website) profileFields.socialLinks.website = socialLinks.website;
+      profileFields.socialLinks = {
+        linkedin: socialLinks.linkedin || '',
+        instagram: socialLinks.instagram || '',
+        xUrl: socialLinks.xUrl || '',
+        website: socialLinks.website || ''
+      };
     }
-
-    // 5. Save to MongoDB
+// Save to MongoDB
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileFields },
