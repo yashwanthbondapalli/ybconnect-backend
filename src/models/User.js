@@ -15,7 +15,8 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     required: true, 
     select: false,
-    minlength: [6, 'Password must be at least 6 characters'] 
+    minlength: [6, 'Password must be at least 6 characters'],
+    select: false
   },
   passwordChangedAt: Date,
   createdAt: { type: Date, default: Date.now },

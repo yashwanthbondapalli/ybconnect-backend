@@ -1,17 +1,15 @@
 const jwt = require('jsonwebtoken');
 
-const generateToken = (id) => {
-  // --- ENTERPRISE FIX START ---
-  if (!process.env.JWT_SECRET) {
-    console.error('FATAL ERROR: JWT_SECRET is not defined in environment variables.');
-    // Crashing the process is safer than generating a compromised token
-    process.exit(1); 
-  }
-  // --- ENTERPRISE FIX END ---
-
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
+const generateAccessToken = (id) => {
+  if (!process.env.JWT_SECRET) process.exit(1);
+  // Short lifespan: 15 minutes
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' });
 };
 
-module.exports = generateToken;
+const generateRefreshToken = (id) => {
+  if (!process.env.REFRESH_TOKEN_SECRET) process.exit(1);
+  // Long lifespan: 30 days
+  return jwt.sign({ id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '30d' });
+};
+
+module.exports = { generateAccessToken, generateRefreshToken };

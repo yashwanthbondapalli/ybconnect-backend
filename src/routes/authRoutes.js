@@ -15,6 +15,8 @@ const {
 } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
+const { refreshToken } = require('../controllers/authController');
+
 
 const router = express.Router();
 
@@ -37,7 +39,7 @@ router.post('/register', authLimiter, registerUser);
 router.post('/login', authLimiter, loginUser);
 
 router.get('/me', protect, getMe);
-router.post('/send-otp', sendEmailOtp);
+router.post('/refresh-token', refreshToken);
 
 // Push token route
 router.post('/push-token', protect, updatePushToken);
@@ -48,8 +50,10 @@ router.put('/update-password', protect, updatePassword);
 
 router.put('/update-email', protect, updateUserEmail);
 // Add the route (Usually near your other OTP routes)
-router.post('/reset-password-otp', resetPasswordWithOtp);
-router.post('/send-reset-otp', sendPasswordResetOtp);
+// In authRoutes.js
+router.post('/send-otp', authLimiter, sendEmailOtp);
+router.post('/send-reset-otp', authLimiter, sendPasswordResetOtp);
+router.post('/reset-password-otp', authLimiter, resetPasswordWithOtp);
 
 // Danger Zone
 router.delete('/delete-account', protect, deleteAccount);

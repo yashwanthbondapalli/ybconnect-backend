@@ -18,7 +18,8 @@ const zoomRoutes = require('./src/routes/zoomRoutes'); // Adjust path if necessa
 // 1. Import the route file at the top with your others
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
-const reviewerRoutes = require('./src/modules/resume-reviewer/routes/reviewer.routes.js')
+const reviewerRoutes = require('./src/modules/resume-reviewer/routes/reviewer.routes.js');
+
 
 const app = express();
 // 🚨 GLOBAL LIGHT SWITCH: Log every single request that hits the server
@@ -46,6 +47,7 @@ app.use(express.json({
     }
   }
 }));
+
 app.use(express.urlencoded({ extended: true }));
 
 // Database Connection
@@ -64,6 +66,9 @@ app.use('/api/v1/auth', authRoutes);
 // Add to your existing routes in server.js
 const profileRoutes = require('./src/routes/profileRoutes');
 app.use('/api/v1/profile', profileRoutes);
+
+const ideaRoutes = require('./src/routes/ideaRoutes.js')
+app.use('/api/v1/ideas', ideaRoutes);
 
 // Add to your existing routes in server.js
 const expertRoutes = require('./src/routes/expertRoutes');

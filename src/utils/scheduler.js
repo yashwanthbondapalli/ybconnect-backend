@@ -2,20 +2,24 @@ const cron = require('node-cron');
 const CallRequest = require('../models/CallRequest');
 const sendEmail = require('./emailHelper');
 
-// 🚨 TEMPORARY TEST CONFIG: Runs every 1 minute
-cron.schedule('*/20 * * * *', async () => {
- 
+// 🚨 RUNS AT MIDNIGHT EVERY DAY
+cron.schedule('0 0 * * *', async () => {
   try {
-    // 🚨 TEMPORARY TEST CONFIG: Looks for sessions exactly 5 minutes old
-    const fiveMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
-     console.log('🧪 TEST CRON: Running 30-Minute Cleanup Sweep...');
+    // 🚨 UPDATED LOGIC: Look for sessions scheduled over 24 hours ago
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    console.log('🧪 DAILY CRON: Running Abandoned Session Cleanup...');
+
     const abandonedSessions = await CallRequest.find({
       status: 'accepted',
       paymentStatus: 'paid', 
-      scheduledAt: { $lt: fiveMinutesAgo }
+      scheduledAt: { $lt: oneDayAgo } // Finds sessions older than 24 hours
     }).populate('requester', 'name email').populate('recipient', 'name email');
 
-    if (abandonedSessions.length === 0) return;
+    if (abandonedSessions.length === 0) {
+      console.log('✅ No abandoned sessions found.');
+      return;
+    }
 
     for (const session of abandonedSessions) {
       session.status = 'completed';
@@ -27,16 +31,16 @@ cron.schedule('*/20 * * * *', async () => {
         session.paymentStatus = 'payout_ready'; 
         session.zoomMeeting.status = 'student_no_show';
         await session.save();
-        console.log(`✅ TEST: Expert Paid! Student No-Show processed.`);
-        // (Email functions remain exactly the same here)
+        console.log(`✅ Expert Paid for session ${session._id}: Student No-Show.`);
       } else {
-        // 🚫 STUDENT REFUNDED: Total No-Show.
+        // 🚫 STUDENT REFUNDED: Total No-Show (Expert didn't join either).
         session.paymentStatus = 'failed';
         if (session.zoomMeeting) session.zoomMeeting.status = 'expert_no_show';
         await session.save();
-        console.log(`✅ TEST: Student Refunded! Total No-Show processed.`);
-        // (Email functions remain exactly the same here)
+        console.log(`✅ Student Refunded for session ${session._id}: Total No-Show.`);
       }
     }
-  } catch (error) { console.error('❌ CRON Error:', error); }
+  } catch (error) { 
+    console.error('❌ CRON Error:', error); 
+  }
 });

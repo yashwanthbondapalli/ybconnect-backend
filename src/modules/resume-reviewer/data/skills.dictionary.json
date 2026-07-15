@@ -1,502 +1,1717 @@
 [
   {
-    "canonicalName": "Optoelectronics",
-    "aliases": ["photonics", "lasers", "leds", "photodetectors", "optical engineering"],
-    "category": "Nanotechnology & Advanced Materials"
+    "canonicalName": "C",
+    "aliases": ["c", "c language", "programming in c", "ansi c"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Micro-Electromechanical Systems (MEMS)",
-    "aliases": ["mems", "micromachining", "mems sensors", "actuators"],
-    "category": "Nanotechnology & Advanced Materials"
+    "canonicalName": "C++",
+    "aliases": ["c++", "cpp", "cplusplus", "programming in c++"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Nano-Electromechanical Systems (NEMS)",
-    "aliases": ["nems", "nanoscale devices", "nanofabrication"],
-    "category": "Nanotechnology & Advanced Materials"
+    "canonicalName": "Java",
+    "aliases": ["java", "core java", "advanced java", "java se"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Solid State Device Physics",
-    "aliases": ["device physics", "semiconductor theory", "band theory", "pn junctions"],
-    "category": "Nanotechnology & Advanced Materials"
+    "canonicalName": "Python",
+    "aliases": ["python", "python3", "py", "python programming"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Photovoltaics",
-    "aliases": ["solar cells", "solar energy", "pv systems", "renewable energy electronics"],
-    "category": "Nanotechnology & Advanced Materials"
+    "canonicalName": "JavaScript",
+    "aliases": ["javascript", "js", "ecmascript", "javascript programming"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Flexible Electronics",
-    "aliases": ["printed electronics", "wearables", "flexible circuits", "organic electronics"],
-    "category": "Hardware & Circuits"
+    "canonicalName": "TypeScript",
+    "aliases": ["typescript", "ts", "typed javascript"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Mixed-Signal IC Design",
-    "aliases": ["mixed signal", "analog/digital integration", "data converters", "adc", "dac"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Go",
+    "aliases": ["go", "golang", "go language"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Phase-Locked Loops (PLL)",
-    "aliases": ["pll", "frequency synthesizers", "clock generation", "vco"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Kotlin",
+    "aliases": ["kotlin", "kotlin language", "android kotlin"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Static Timing Analysis (STA)",
-    "aliases": ["sta", "prime time", "timing closure", "setup and hold"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "PHP",
+    "aliases": ["php", "php language", "php programming"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Logic Synthesis",
-    "aliases": ["synthesis", "design compiler", "rtl to gate", "netlist generation"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "C#",
+    "aliases": ["c#", "csharp", ".net c#", "c sharp"],
+    "category": "Programming Language"
   },
   {
-    "canonicalName": "Design for Testability (DFT)",
-    "aliases": ["dft", "scan chains", "atpg", "bist", "jtag"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "HTML",
+    "aliases": ["html", "html5", "hypertext markup language"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Advanced IC Packaging",
-    "aliases": ["3d ic", "2.5d packaging", "tsvs", "system in package", "sip"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "CSS",
+    "aliases": ["css", "css3", "cascading style sheets"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Silicon Photonics",
-    "aliases": ["pic", "photonic integrated circuits", "optical interconnects"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Bootstrap",
+    "aliases": ["bootstrap", "bootstrap5", "bootstrap css"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Automatic Test Equipment (ATE)",
-    "aliases": ["ate", "production testing", "teradyne", "advantest", "wafer probing"],
-    "category": "Testing & Instrumentation"
+    "canonicalName": "Tailwind CSS",
+    "aliases": ["tailwind", "tailwind css", "tailwindcss"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Oscilloscope Operation",
-    "aliases": ["oscilloscopes", "dso", "waveform analysis", "hardware debugging"],
-    "category": "Testing & Instrumentation"
+    "canonicalName": "React.js",
+    "aliases": ["react", "reactjs", "react.js"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Spectrum Analysis",
-    "aliases": ["spectrum analyzers", "frequency domain analysis", "rf testing"],
-    "category": "Testing & Instrumentation"
+    "canonicalName": "Angular",
+    "aliases": ["angular", "angularjs"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Vector Network Analysis",
-    "aliases": ["vna", "network analyzers", "s-parameter measurement"],
-    "category": "Testing & Instrumentation"
+    "canonicalName": "Vue.js",
+    "aliases": ["vue", "vuejs", "vue.js"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Power Integrity (PI)",
-    "aliases": ["pi", "pdn design", "power delivery networks", "decoupling"],
-    "category": "Hardware & Circuits"
+    "canonicalName": "Next.js",
+    "aliases": ["next", "nextjs", "next.js"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Thermal Management",
-    "aliases": ["heatsinks", "thermal design", "dissipation", "cooling systems"],
-    "category": "Hardware & Circuits"
+    "canonicalName": "Responsive Web Design",
+    "aliases": ["responsive design", "responsive web design", "rwd", "mobile first design"],
+    "category": "Frontend"
   },
   {
-    "canonicalName": "Massive MIMO",
-    "aliases": ["mimo", "multiple input multiple output", "spatial multiplexing", "beamforming"],
-    "category": "Communications & Networking"
+    "canonicalName": "Node.js",
+    "aliases": ["node", "nodejs", "node.js"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Cognitive Radio",
-    "aliases": ["dynamic spectrum access", "spectrum sensing", "crn"],
-    "category": "Communications & Networking"
+    "canonicalName": "Express.js",
+    "aliases": ["express", "expressjs", "express.js"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Millimeter Wave (mmWave)",
-    "aliases": ["mmwave", "e-band", "v-band", "high-frequency comms", "5g mmwave"],
-    "category": "Communications & Networking"
+    "canonicalName": "Spring Boot",
+    "aliases": ["spring boot", "springboot"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Terahertz Communications",
-    "aliases": ["thz comms", "sub-millimeter wave", "6g technologies"],
-    "category": "Communications & Networking"
+    "canonicalName": "Django",
+    "aliases": ["django", "django framework"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Ultra-Wideband (UWB)",
-    "aliases": ["uwb", "short-range comms", "indoor positioning", "pulse radio"],
-    "category": "Communications & Networking"
+    "canonicalName": "Flask",
+    "aliases": ["flask", "python flask"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "LoRaWAN",
-    "aliases": ["lora", "lpwan", "low power wide area network", "long range"],
-    "category": "Communications & Networking"
+    "canonicalName": "FastAPI",
+    "aliases": ["fastapi", "fast api"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Zigbee and Z-Wave",
-    "aliases": ["zigbee", "z-wave", "ieee 802.15.4", "home automation protocols"],
-    "category": "Communications & Networking"
+    "canonicalName": "ASP.NET Core",
+    "aliases": ["asp.net core", "asp.net", ".net core", "aspnet core"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "RFID and NFC",
-    "aliases": ["rfid", "nfc", "near field communication", "contactless"],
-    "category": "Communications & Networking"
+    "canonicalName": "REST API",
+    "aliases": ["rest api", "restful api", "api development"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Free Space Optics (FSO)",
-    "aliases": ["fso", "optical wireless", "lifi", "visible light communication"],
-    "category": "Communications & Networking"
+    "canonicalName": "GraphQL",
+    "aliases": ["graphql", "graph ql"],
+    "category": "Backend"
   },
   {
-    "canonicalName": "Automotive Electronics",
-    "aliases": ["can bus", "lin bus", "flexray", "ecu", "autosar"],
-    "category": "Automotive & Industrial"
+    "canonicalName": "SQL",
+    "aliases": ["sql", "structured query language"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Electric Vehicle (EV) Electronics",
-    "aliases": ["ev powertrain", "motor controllers", "inverters", "charging infrastructure"],
-    "category": "Automotive & Industrial"
+    "canonicalName": "MySQL",
+    "aliases": ["mysql", "mysql database"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Battery Management Systems (BMS)",
-    "aliases": ["bms", "battery balancing", "soc estimation", "soh"],
-    "category": "Automotive & Industrial"
+    "canonicalName": "PostgreSQL",
+    "aliases": ["postgresql", "postgres", "pgsql"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Avionics",
-    "aliases": ["aerospace electronics", "flight control systems", "arinc", "mil-std-1553"],
-    "category": "Automotive & Industrial"
+    "canonicalName": "MongoDB",
+    "aliases": ["mongodb", "mongo"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Industrial Internet of Things (IIoT)",
-    "aliases": ["iiot", "industry 4.0", "machine-to-machine", "m2m"],
-    "category": "Automotive & Industrial"
+    "canonicalName": "SQLite",
+    "aliases": ["sqlite", "sqlite3"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Smart Grid Communications",
-    "aliases": ["smart grids", "ami", "smart meters", "power line communication"],
-    "category": "Automotive & Industrial"
+    "canonicalName": "Redis",
+    "aliases": ["redis", "redis cache"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Embedded Cybersecurity",
-    "aliases": ["iot security", "embedded security", "secure boot", "trusted execution environment"],
-    "category": "Security & Reliability"
+    "canonicalName": "Firebase",
+    "aliases": ["firebase", "google firebase", "firebase firestore"],
+    "category": "Database"
   },
   {
-    "canonicalName": "Hardware Security",
-    "aliases": ["pufs", "physically unclonable functions", "side-channel attacks", "hardware trojans"],
-    "category": "Security & Reliability"
+    "canonicalName": "Android Development",
+    "aliases": ["android", "android development", "native android"],
+    "category": "Mobile"
   },
   {
-    "canonicalName": "Cryptographic Hardware Accelerators",
-    "aliases": ["crypto accelerators", "aes engines", "rsa hardware", "elliptic curve hardware"],
-    "category": "Security & Reliability"
+    "canonicalName": "Flutter",
+    "aliases": ["flutter", "flutter sdk"],
+    "category": "Mobile"
   },
   {
-    "canonicalName": "Reliability Engineering",
-    "aliases": ["mtbf", "fit", "fmea", "bathtub curve", "environmental testing"],
-    "category": "Security & Reliability"
+    "canonicalName": "React Native",
+    "aliases": ["react native", "reactnative"],
+    "category": "Mobile"
   },
   {
-    "canonicalName": "Failure Analysis",
-    "aliases": ["fa", "sem", "edx", "x-ray inspection", "root cause analysis"],
-    "category": "Security & Reliability"
+    "canonicalName": "Kotlin",
+    "aliases": ["kotlin", "android kotlin"],
+    "category": "Mobile"
   },
   {
-    "canonicalName": "Quality Management Systems",
-    "aliases": ["six sigma", "iso 9001", "lean manufacturing", "statistical process control", "spc"],
-    "category": "Security & Reliability"
+    "canonicalName": "Swift",
+    "aliases": ["swift", "swift programming", "ios development"],
+    "category": "Mobile"
   },
   {
-    "canonicalName": "SPICE Simulation",
-    "aliases": ["ltspice", "pspice", "ngspice", "hspice", "circuit simulation"],
-    "category": "Software & Tools"
+    "canonicalName": "iOS Development",
+    "aliases": ["ios", "ios development", "apple ios"],
+    "category": "Mobile"
   },
   {
-    "canonicalName": "TCAD (Technology Computer-Aided Design)",
-    "aliases": ["tcad", "sentaurus", "silvaco", "device simulation", "process simulation"],
-    "category": "Software & Tools"
+    "canonicalName": "Git",
+    "aliases": ["git", "git scm"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "Tcl/Tk Scripting",
-    "aliases": ["tcl", "eda scripting", "tool automation"],
-    "category": "Software & Tools"
+    "canonicalName": "GitHub",
+    "aliases": ["github", "git hub"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "Perl Scripting",
-    "aliases": ["perl", "text processing", "vlsi scripting", "automation scripts"],
-    "category": "Software & Tools"
+    "canonicalName": "GitLab",
+    "aliases": ["gitlab"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "GNU Octave / Scilab",
-    "aliases": ["octave", "scilab", "open-source math tools", "numerical computing"],
-    "category": "Software & Tools"
+    "canonicalName": "Docker",
+    "aliases": ["docker", "containerization", "docker containers"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "High-Speed Serial Interfaces",
-    "aliases": ["pcie", "sata", "usb 3.0", "serdes", "hdmi", "displayport"],
-    "category": "Hardware & Circuits"
+    "canonicalName": "Kubernetes",
+    "aliases": ["kubernetes", "k8s"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "Audio Amplifier Design",
-    "aliases": ["class a", "class ab", "class d amplifiers", "audio engineering"],
-    "category": "Hardware & Circuits"
+    "canonicalName": "Jenkins",
+    "aliases": ["jenkins", "ci/cd", "continuous integration"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "Quantum Computing Hardware",
-    "aliases": ["superconducting qubits", "trapped ions", "quantum circuits", "cryogenic electronics"],
-    "category": "Nanotechnology & Advanced Materials"
+    "canonicalName": "Amazon Web Services",
+    "aliases": ["aws", "amazon web services"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "Hardware-in-the-Loop (HIL) Testing",
-    "aliases": ["hil", "dspace", "system validation", "real-time simulation"],
-    "category": "Testing & Instrumentation"
+    "canonicalName": "Microsoft Azure",
+    "aliases": ["azure", "microsoft azure"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "Engineering Ethics & Standards",
-    "aliases": ["ieee standards", "iso compliance", "fcc regulations", "ce marking"],
-    "category": "Professional Skills"
+    "canonicalName": "Google Cloud Platform",
+    "aliases": ["gcp", "google cloud", "google cloud platform"],
+    "category": "DevOps & Cloud"
   },
   {
-    "canonicalName": "VLSI Design",
-    "aliases": ["vlsi", "very large scale integration", "chip design", "ic design"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Visual Studio Code",
+    "aliases": ["vs code", "vscode", "visual studio code"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "Application-Specific Integrated Circuit (ASIC) Design",
-    "aliases": ["asic", "asic design flow", "custom ic"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "IntelliJ IDEA",
+    "aliases": ["intellij", "intellij idea"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "System on Chip (SoC) Design",
-    "aliases": ["soc", "system on a chip", "arm cortex"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Eclipse IDE",
+    "aliases": ["eclipse", "eclipse ide"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "CMOS Technology",
-    "aliases": ["cmos", "mosfet", "semiconductor physics", "semiconductor devices"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Postman",
+    "aliases": ["postman", "api testing"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "Electronic Design Automation (EDA) Tools",
-    "aliases": ["eda", "synopsys", "cadence", "mentor graphics"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Swagger",
+    "aliases": ["swagger", "openapi", "swagger ui"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "Digital Logic Design",
-    "aliases": ["digital electronics", "logic gates", "boolean algebra", "digital circuits"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Maven",
+    "aliases": ["maven", "apache maven"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "Physical Design",
-    "aliases": ["pd", "floorplanning", "placement and routing", "pnr", "clock tree synthesis"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Gradle",
+    "aliases": ["gradle"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "Analog Integrated Circuit Design",
-    "aliases": ["analog ic", "op-amps", "mixed-signal design", "cmos analog"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "npm",
+    "aliases": ["npm", "node package manager"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "IC Testing and Verification",
-    "aliases": ["design verification", "dft", "design for testability", "uvm", "ic testing"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Yarn",
+    "aliases": ["yarn", "yarn package manager"],
+    "category": "Tool"
   },
   {
-    "canonicalName": "FPGA Prototyping",
-    "aliases": ["fpga", "field programmable gate array", "xilinx", "altera"],
-    "category": "VLSI & Microelectronics"
+    "canonicalName": "Data Structures",
+    "aliases": ["data structures", "ds", "dsa"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Embedded Systems",
-    "aliases": ["embedded design", "microcontrollers", "embedded hardware"],
-    "category": "Embedded Systems"
+    "canonicalName": "Algorithms",
+    "aliases": ["algorithms", "algorithm design", "dsa"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Internet of Things (IoT)",
-    "aliases": ["iot", "smart devices", "nodemcu", "sensor networks"],
-    "category": "Embedded Systems"
+    "canonicalName": "Object-Oriented Programming",
+    "aliases": ["oop", "oops", "object oriented programming"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Microprocessors & Microcontrollers",
-    "aliases": ["8051", "arm", "pic", "avr", "microprocessor architecture"],
-    "category": "Embedded Systems"
+    "canonicalName": "Database Management Systems",
+    "aliases": ["dbms", "database management system"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Real-Time Operating Systems (RTOS)",
-    "aliases": ["rtos", "freertos", "vxworks", "qnx"],
-    "category": "Embedded Systems"
+    "canonicalName": "Operating Systems",
+    "aliases": ["os", "operating systems"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Firmware Development",
-    "aliases": ["firmware", "bare-metal programming", "bootloaders"],
-    "category": "Embedded Systems"
+    "canonicalName": "Computer Networks",
+    "aliases": ["computer networks", "cn", "networking"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Embedded C/C++",
-    "aliases": ["embedded c", "embedded cpp", "low-level programming"],
-    "category": "Embedded Systems"
+    "canonicalName": "System Design",
+    "aliases": ["system design", "low level design", "high level design", "lld", "hld"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Sensor Interfacing & Protocols",
-    "aliases": ["i2c", "spi", "uart", "can bus", "usb", "serial communication"],
-    "category": "Embedded Systems"
+    "canonicalName": "Design Patterns",
+    "aliases": ["design patterns", "software design patterns"],
+    "category": "CS Fundamentals"
   },
   {
-    "canonicalName": "Edge Computing",
-    "aliases": ["edge ai", "tinyml", "local processing", "fog computing"],
-    "category": "Embedded Systems"
+    "canonicalName": "Python",
+    "aliases": ["python", "python3", "py"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Printed Circuit Board (PCB) Design",
-    "aliases": ["pcb layout", "altium designer", "eagle", "kicad", "orcad"],
-    "category": "Embedded Systems"
+    "canonicalName": "SQL",
+    "aliases": ["sql", "structured query language"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Digital Signal Processing (DSP)",
-    "aliases": ["dsp", "discrete time signals", "z-transform", "fourier transform"],
-    "category": "Signal Processing"
+    "canonicalName": "Pandas",
+    "aliases": ["pandas", "pd"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Analog Signal Processing",
-    "aliases": ["asp", "filters", "continuous time signals", "amplifiers"],
-    "category": "Signal Processing"
+    "canonicalName": "NumPy",
+    "aliases": ["numpy", "np"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Digital Image Processing",
-    "aliases": ["image processing", "dip", "spatial filtering", "image segmentation"],
-    "category": "Signal Processing"
+    "canonicalName": "Matplotlib",
+    "aliases": ["matplotlib", "plt"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Speech and Audio Processing",
-    "aliases": ["audio dsp", "speech recognition", "acoustics", "voice processing"],
-    "category": "Signal Processing"
+    "canonicalName": "Seaborn",
+    "aliases": ["seaborn", "sns"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Radar Signal Processing",
-    "aliases": ["radar", "sonar", "doppler effect", "target tracking"],
-    "category": "Signal Processing"
+    "canonicalName": "Scikit-learn",
+    "aliases": ["scikit-learn", "sklearn", "scikit learn"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Biomedical Signal Processing",
-    "aliases": ["ecg processing", "eeg", "biomedical instrumentation", "medical imaging"],
-    "category": "Signal Processing"
+    "canonicalName": "TensorFlow",
+    "aliases": ["tensorflow", "tf"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Digital Communication Systems",
-    "aliases": ["digital comms", "modulation", "qam", "psk", "fsk", "error coding"],
-    "category": "Communications"
+    "canonicalName": "PyTorch",
+    "aliases": ["pytorch", "torch"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Analog Communication Systems",
-    "aliases": ["analog comms", "am", "fm", "pm", "broadcasting"],
-    "category": "Communications"
+    "canonicalName": "OpenCV",
+    "aliases": ["opencv", "cv2"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Wireless Communications",
-    "aliases": ["5g", "4g lte", "cellular networks", "wi-fi", "bluetooth"],
-    "category": "Communications"
+    "canonicalName": "Machine Learning",
+    "aliases": ["machine learning", "ml"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Optical Fiber Communication",
-    "aliases": ["fiber optics", "wdm", "photonics", "optical networks"],
-    "category": "Communications"
+    "canonicalName": "Deep Learning",
+    "aliases": ["deep learning", "dl"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "RF Engineering",
-    "aliases": ["radio frequency", "rf design", "rf circuits", "transceivers"],
-    "category": "RF & Electromagnetics"
-  },
-  {
-    "canonicalName": "Antenna Theory and Design",
-    "aliases": ["antennas", "cst microwave studio", "hfss", "radiation patterns", "phased arrays"],
-    "category": "RF & Electromagnetics"
-  },
-  {
-    "canonicalName": "Satellite Communications",
-    "aliases": ["satcom", "vsat", "gnss", "gps", "telemetry"],
-    "category": "Communications"
-  },
-  {
-    "canonicalName": "Microwave Engineering",
-    "aliases": ["microwaves", "waveguides", "s-parameters", "transmission lines"],
-    "category": "RF & Electromagnetics"
-  },
-  {
-    "canonicalName": "Computer Networking",
-    "aliases": ["tcp/ip", "osi model", "routers", "switches", "lan/wan"],
-    "category": "Communications"
-  },
-  {
-    "canonicalName": "Telecommunication Protocols",
-    "aliases": ["sip", "voip", "ss7", "telecom networking"],
-    "category": "Communications"
-  },
-  {
-    "canonicalName": "Software Defined Radio (SDR)",
-    "aliases": ["sdr", "gnu radio", "usrp", "cognitive radio"],
-    "category": "Communications"
-  },
-  {
-    "canonicalName": "Control Systems Engineering",
-    "aliases": ["control theory", "pid controllers", "feedback loops", "root locus"],
-    "category": "Control Systems"
-  },
-  {
-    "canonicalName": "Automation and Robotics",
-    "aliases": ["robotics", "ros", "kinematics", "industrial automation"],
-    "category": "Control Systems"
-  },
-  {
-    "canonicalName": "Power Electronics",
-    "aliases": ["power devices", "inverters", "smps", "dc-dc converters"],
-    "category": "Control Systems"
-  },
-  {
-    "canonicalName": "PLC & SCADA",
-    "aliases": ["programmable logic controllers", "ladder logic", "scada systems", "hmi"],
-    "category": "Control Systems"
-  },
-  {
-    "canonicalName": "MATLAB & Simulink",
-    "aliases": ["matlab", "simulink", "mathematical modeling", "system simulation"],
-    "category": "Software & Tools"
-  },
-  {
-    "canonicalName": "LabVIEW",
-    "aliases": ["labview", "national instruments", "ni", "virtual instrumentation"],
-    "category": "Software & Tools"
-  },
-  {
-    "canonicalName": "Python for Hardware Automation",
-    "aliases": ["python scripting", "pyserial", "micropython", "automated testing"],
-    "category": "Software & Tools"
-  },
-  {
-    "canonicalName": "C/C++ Programming",
-    "aliases": ["c", "c++", "cpp", "systems programming", "memory management"],
-    "category": "Software & Tools"
-  },
-  {
-    "canonicalName": "Machine Learning in ECE",
-    "aliases": ["ml for signal processing", "predictive maintenance", "ai in hardware"],
-    "category": "Software & Tools"
-  },
-  {
-    "canonicalName": "Hardware Description Languages (HDL)",
-    "aliases": ["verilog", "vhdl", "systemverilog", "rtl coding"],
-    "category": "VLSI & Microelectronics"
-  },
-  {
-    "canonicalName": "Artificial Intelligence of Things (AIoT)",
-    "aliases": ["aiot", "smart sensors", "intelligent edge"],
-    "category": "Embedded Systems"
+    "canonicalName": "Natural Language Processing",
+    "aliases": ["nlp", "natural language processing"],
+    "category": "Data Science / AI / ML"
   },
   {
     "canonicalName": "Computer Vision",
-    "aliases": ["cv", "opencv", "machine vision", "image recognition"],
-    "category": "Signal Processing"
+    "aliases": ["computer vision", "cv"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Signal Integrity",
-    "aliases": ["si", "power integrity", "pi", "high-speed design", "crosstalk"],
-    "category": "RF & Electromagnetics"
+    "canonicalName": "Statistics",
+    "aliases": ["statistics", "statistical analysis"],
+    "category": "Data Science / AI / ML"
   },
   {
-    "canonicalName": "Electromagnetic Compatibility (EMC)",
-    "aliases": ["emc", "emi", "electromagnetic interference", "shielding"],
-    "category": "RF & Electromagnetics"
+    "canonicalName": "Data Analysis",
+    "aliases": ["data analysis", "data analytics"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Data Visualization",
+    "aliases": ["data visualization", "visual analytics"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Feature Engineering",
+    "aliases": ["feature engineering", "feature extraction"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Model Training",
+    "aliases": ["model training", "training models"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Model Evaluation",
+    "aliases": ["model evaluation", "model validation"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Streamlit",
+    "aliases": ["streamlit", "stream lit"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Gradio",
+    "aliases": ["gradio"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Jupyter Notebook",
+    "aliases": ["jupyter", "jupyter notebook", "ipynb"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Google Colab",
+    "aliases": ["google colab", "colab", "colab notebook"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Apache Spark",
+    "aliases": ["spark", "apache spark", "pyspark"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "PySpark",
+    "aliases": ["pyspark", "spark python"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Hugging Face",
+    "aliases": ["hugging face", "transformers", "hf"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "LangChain",
+    "aliases": ["langchain", "lang chain"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Large Language Models",
+    "aliases": ["llm", "llms", "large language models"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Generative AI",
+    "aliases": ["genai", "generative ai", "generative artificial intelligence"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Prompt Engineering",
+    "aliases": ["prompt engineering", "prompt design"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Retrieval-Augmented Generation",
+    "aliases": ["rag", "retrieval augmented generation"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Vector Databases",
+    "aliases": ["vector database", "vector databases", "embedding database"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "FAISS",
+    "aliases": ["faiss", "facebook ai similarity search"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "ChromaDB",
+    "aliases": ["chromadb", "chroma db", "chroma"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "OpenAI API",
+    "aliases": ["openai api", "gpt api", "chatgpt api"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Machine Learning Operations",
+    "aliases": ["mlops", "machine learning operations"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Model Deployment",
+    "aliases": ["model deployment", "deploying models"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Time Series Analysis",
+    "aliases": ["time series", "time series forecasting"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Recommendation Systems",
+    "aliases": ["recommendation systems", "recommender systems"],
+    "category": "Data Science / AI / ML"
+  },
+  {
+    "canonicalName": "Microsoft Excel",
+    "aliases": ["excel", "microsoft excel", "ms excel"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Advanced Excel",
+    "aliases": ["advanced excel", "excel advanced"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "SQL",
+    "aliases": ["sql", "structured query language"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Python",
+    "aliases": ["python", "python3", "py"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Power BI",
+    "aliases": ["power bi", "microsoft power bi"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Tableau",
+    "aliases": ["tableau", "tableau desktop"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Looker Studio",
+    "aliases": ["looker studio", "google looker studio", "data studio"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Statistics",
+    "aliases": ["statistics", "statistical analysis"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Data Visualization",
+    "aliases": ["data visualization", "visual analytics"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Extract, Transform, Load",
+    "aliases": ["etl", "extract transform load"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Pandas",
+    "aliases": ["pandas", "pd"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "NumPy",
+    "aliases": ["numpy", "np"],
+    "category": "Data Analytics"
+  },
+  {
+    "canonicalName": "Linux",
+    "aliases": ["linux", "ubuntu", "unix"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Computer Networking",
+    "aliases": ["networking", "computer networks", "network security"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Ethical Hacking",
+    "aliases": ["ethical hacking", "white hat hacking"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Penetration Testing",
+    "aliases": ["penetration testing", "pentesting", "pentest"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Kali Linux",
+    "aliases": ["kali", "kali linux"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Burp Suite",
+    "aliases": ["burp suite", "burp"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Wireshark",
+    "aliases": ["wireshark"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Nmap",
+    "aliases": ["nmap", "network mapper"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Metasploit",
+    "aliases": ["metasploit", "metasploit framework"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "OWASP",
+    "aliases": ["owasp", "owasp top 10"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Security Information and Event Management",
+    "aliases": ["siem", "security information and event management"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Security Operations Center",
+    "aliases": ["soc", "security operations center"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Incident Response",
+    "aliases": ["incident response", "security incident response"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Cryptography",
+    "aliases": ["cryptography", "encryption"],
+    "category": "Cyber Security"
+  },
+  {
+    "canonicalName": "Amazon Web Services",
+    "aliases": ["aws", "amazon web services"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Microsoft Azure",
+    "aliases": ["azure", "microsoft azure"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Google Cloud Platform",
+    "aliases": ["gcp", "google cloud", "google cloud platform"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Docker",
+    "aliases": ["docker", "containerization", "docker containers"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Kubernetes",
+    "aliases": ["kubernetes", "k8s"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Jenkins",
+    "aliases": ["jenkins", "ci/cd", "continuous integration"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Terraform",
+    "aliases": ["terraform", "iac", "infrastructure as code"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Ansible",
+    "aliases": ["ansible"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Linux",
+    "aliases": ["linux", "ubuntu", "unix"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Bash",
+    "aliases": ["bash", "bash scripting", "shell scripting"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Git",
+    "aliases": ["git", "git scm"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Continuous Integration and Continuous Deployment",
+    "aliases": ["ci/cd", "continuous integration", "continuous deployment"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Prometheus",
+    "aliases": ["prometheus"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Grafana",
+    "aliases": ["grafana"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Helm",
+    "aliases": ["helm", "helm charts"],
+    "category": "Cloud / DevOps"
+  },
+  {
+    "canonicalName": "Manual Testing",
+    "aliases": ["manual testing", "software testing"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Automation Testing",
+    "aliases": ["automation testing", "test automation"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Selenium",
+    "aliases": ["selenium", "selenium webdriver"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Cypress",
+    "aliases": ["cypress", "cypress io"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Playwright",
+    "aliases": ["playwright", "microsoft playwright"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "TestNG",
+    "aliases": ["testng"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "JUnit",
+    "aliases": ["junit", "junit5"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "API Testing",
+    "aliases": ["api testing", "rest api testing"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Postman",
+    "aliases": ["postman", "postman api"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Apache JMeter",
+    "aliases": ["jmeter", "apache jmeter"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Performance Testing",
+    "aliases": ["performance testing", "load testing", "stress testing"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Agile Testing",
+    "aliases": ["agile testing", "scrum testing"],
+    "category": "Testing / QA"
+  },
+  {
+    "canonicalName": "Salesforce CRM",
+    "aliases": ["salesforce", "salesforce crm"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Apex",
+    "aliases": ["apex", "salesforce apex"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Lightning Web Components",
+    "aliases": ["lwc", "lightning web components"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Salesforce Object Query Language",
+    "aliases": ["soql", "salesforce object query language"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Salesforce Object Search Language",
+    "aliases": ["sosl", "salesforce object search language"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Salesforce Flow",
+    "aliases": ["salesforce flow", "flow builder"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Visualforce",
+    "aliases": ["visualforce", "vf pages"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Salesforce Administration",
+    "aliases": ["salesforce admin", "salesforce administration"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "Salesforce Development",
+    "aliases": ["salesforce developer", "salesforce development"],
+    "category": "Salesforce"
+  },
+  {
+    "canonicalName": "ServiceNow",
+    "aliases": ["servicenow", "service now"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "IT Service Management",
+    "aliases": ["itsm", "it service management"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Information Technology Infrastructure Library",
+    "aliases": ["itil", "it infrastructure library"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Service Portal",
+    "aliases": ["service portal", "servicenow portal"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Flow Designer",
+    "aliases": ["flow designer", "servicenow flow designer"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Business Rules",
+    "aliases": ["business rules", "servicenow business rules"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Client Scripts",
+    "aliases": ["client scripts", "servicenow client scripts"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Catalog Items",
+    "aliases": ["catalog items", "service catalog items"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Configuration Management Database",
+    "aliases": ["cmdb", "configuration management database"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "Service Catalog",
+    "aliases": ["service catalog", "servicenow service catalog"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "IntegrationHub",
+    "aliases": ["integrationhub", "integration hub"],
+    "category": "ServiceNow"
+  },
+  {
+    "canonicalName": "SAP ABAP",
+    "aliases": ["sap abap", "abap"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP Financial Accounting and Controlling",
+    "aliases": ["sap fico", "fico"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP Materials Management",
+    "aliases": ["sap mm", "materials management"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP Sales and Distribution",
+    "aliases": ["sap sd", "sales and distribution"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP HANA",
+    "aliases": ["sap hana", "hana"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP Basis",
+    "aliases": ["sap basis", "basis"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP SuccessFactors",
+    "aliases": ["successfactors", "sap successfactors"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "SAP S/4HANA",
+    "aliases": ["sap s4hana", "sap s/4hana", "s4hana"],
+    "category": "SAP"
+  },
+  {
+    "canonicalName": "Oracle SQL",
+    "aliases": ["oracle sql", "oracle database sql"],
+    "category": "Oracle"
+  },
+  {
+    "canonicalName": "Oracle Database",
+    "aliases": ["oracle database", "oracle db"],
+    "category": "Oracle"
+  },
+  {
+    "canonicalName": "Oracle Application Express",
+    "aliases": ["oracle apex", "apex"],
+    "category": "Oracle"
+  },
+  {
+    "canonicalName": "Oracle Fusion Cloud",
+    "aliases": ["oracle fusion", "oracle fusion cloud"],
+    "category": "Oracle"
+  },
+  {
+    "canonicalName": "Oracle Cloud Infrastructure",
+    "aliases": ["oracle cloud", "oci", "oracle cloud infrastructure"],
+    "category": "Oracle"
+  },
+  {
+    "canonicalName": ".NET",
+    "aliases": [".net", "dotnet", ".net framework"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "ASP.NET",
+    "aliases": ["asp.net", "aspnet"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "C#",
+    "aliases": ["c#", "c sharp", "csharp"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Microsoft Azure",
+    "aliases": ["azure", "microsoft azure"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Microsoft Power Apps",
+    "aliases": ["power apps", "powerapps"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Microsoft Power Automate",
+    "aliases": ["power automate", "microsoft flow"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Power BI",
+    "aliases": ["power bi", "microsoft power bi"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Microsoft SharePoint",
+    "aliases": ["sharepoint", "microsoft sharepoint"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Microsoft Dynamics 365",
+    "aliases": ["dynamics 365", "microsoft dynamics", "d365"],
+    "category": "Microsoft Technologies"
+  },
+  {
+    "canonicalName": "Embedded C",
+    "aliases": ["embedded c", "embedded c programming"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "Arduino",
+    "aliases": ["arduino", "arduino uno"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "Raspberry Pi",
+    "aliases": ["raspberry pi", "raspi", "rpi"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "ESP32",
+    "aliases": ["esp32", "esp-32"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "ARM",
+    "aliases": ["arm", "arm cortex", "cortex-m"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "Real-Time Operating Systems",
+    "aliases": ["rtos", "real time operating system"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "UART",
+    "aliases": ["uart", "serial communication"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "SPI",
+    "aliases": ["spi", "serial peripheral interface"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "I2C",
+    "aliases": ["i2c", "iic", "inter integrated circuit"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "CAN Bus",
+    "aliases": ["can", "can bus", "controller area network"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "Message Queuing Telemetry Transport",
+    "aliases": ["mqtt", "mqtt protocol"],
+    "category": "Embedded / IoT"
+  },
+  {
+    "canonicalName": "VLSI Design",
+    "aliases": ["vlsi", "vlsi design"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Verilog HDL",
+    "aliases": ["verilog", "verilog hdl"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "SystemVerilog",
+    "aliases": ["systemverilog", "sv"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "RTL Design",
+    "aliases": ["rtl", "rtl design", "register transfer level"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Universal Verification Methodology",
+    "aliases": ["uvm", "universal verification methodology"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Design for Test",
+    "aliases": ["dft", "design for test"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Static Timing Analysis",
+    "aliases": ["sta", "static timing analysis"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Physical Design",
+    "aliases": ["physical design", "pd"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Field-Programmable Gate Array",
+    "aliases": ["fpga", "field programmable gate array"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Application-Specific Integrated Circuit",
+    "aliases": ["asic", "asic design"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Cadence",
+    "aliases": ["cadence", "cadence virtuoso", "cadence innovus"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Synopsys",
+    "aliases": ["synopsys", "design compiler", "primetime", "icc2"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Xilinx Vivado",
+    "aliases": ["vivado", "xilinx vivado"],
+    "category": "VLSI"
+  },
+  {
+    "canonicalName": "Figma",
+    "aliases": ["figma"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Adobe XD",
+    "aliases": ["adobe xd", "xd"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Adobe Photoshop",
+    "aliases": ["photoshop", "adobe photoshop", "ps"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Adobe Illustrator",
+    "aliases": ["illustrator", "adobe illustrator", "ai"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Wireframing",
+    "aliases": ["wireframing", "wireframes"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Prototyping",
+    "aliases": ["prototyping", "prototype design"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "User Research",
+    "aliases": ["user research", "ux research"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Design Systems",
+    "aliases": ["design systems", "ui design systems"],
+    "category": "UI/UX Design"
+  },
+  {
+    "canonicalName": "Agile",
+    "aliases": ["agile", "agile methodology"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Scrum",
+    "aliases": ["scrum", "scrum framework"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Jira",
+    "aliases": ["jira", "atlassian jira"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Confluence",
+    "aliases": ["confluence", "atlassian confluence"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Product Roadmap",
+    "aliases": ["product roadmap", "roadmapping"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "User Stories",
+    "aliases": ["user stories", "user story"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Market Research",
+    "aliases": ["market research", "competitive analysis"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Product Analytics",
+    "aliases": ["product analytics", "analytics"],
+    "category": "Product Management"
+  },
+  {
+    "canonicalName": "Microsoft Excel",
+    "aliases": ["excel", "ms excel", "microsoft excel"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "SQL",
+    "aliases": ["sql", "structured query language"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Power BI",
+    "aliases": ["power bi", "microsoft power bi"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Tableau",
+    "aliases": ["tableau", "tableau desktop"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Jira",
+    "aliases": ["jira", "atlassian jira"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Confluence",
+    "aliases": ["confluence", "atlassian confluence"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Business Process Model and Notation",
+    "aliases": ["bpmn", "business process model notation"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Requirement Gathering",
+    "aliases": ["requirement gathering", "requirements gathering", "requirement analysis"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Business Requirements Document",
+    "aliases": ["brd", "business requirements document"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Functional Requirements Document",
+    "aliases": ["frd", "functional requirements document"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Unified Modeling Language",
+    "aliases": ["uml", "unified modeling language"],
+    "category": "Business Analyst"
+  },
+  {
+    "canonicalName": "Search Engine Optimization",
+    "aliases": ["seo", "search engine optimization"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Search Engine Marketing",
+    "aliases": ["sem", "search engine marketing"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Google Ads",
+    "aliases": ["google ads", "google adwords"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Meta Ads",
+    "aliases": ["meta ads", "facebook ads", "instagram ads"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Google Analytics",
+    "aliases": ["google analytics", "ga4", "analytics"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "WordPress",
+    "aliases": ["wordpress", "wp"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Email Marketing",
+    "aliases": ["email marketing", "email campaigns"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Canva",
+    "aliases": ["canva"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Social Media Marketing",
+    "aliases": ["social media marketing", "smm"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Content Marketing",
+    "aliases": ["content marketing", "content creation"],
+    "category": "Digital Marketing"
+  },
+  {
+    "canonicalName": "Human Resource Management",
+    "aliases": ["hr", "human resources", "human resource management"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Recruitment",
+    "aliases": ["recruitment", "hiring", "talent acquisition"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Payroll Management",
+    "aliases": ["payroll", "payroll management"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Human Resource Management System",
+    "aliases": ["hrms", "human resource management system"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Employee Relations",
+    "aliases": ["employee relations"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Data Entry",
+    "aliases": ["data entry", "data processing"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Documentation",
+    "aliases": ["documentation", "document management"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Management Information Systems Reporting",
+    "aliases": ["mis", "mis reporting", "management information system"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Customer Relationship Management",
+    "aliases": ["crm", "customer relationship management"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Customer Service",
+    "aliases": ["customer service", "customer support"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Email Support",
+    "aliases": ["email support"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Chat Support",
+    "aliases": ["chat support"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Voice Process",
+    "aliases": ["voice process", "voice support"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Microsoft Office",
+    "aliases": ["microsoft office", "ms office", "office suite"],
+    "category": "Non-Technical"
+  },
+  {
+    "canonicalName": "Accounting",
+    "aliases": ["accounting", "financial accounting"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Bookkeeping",
+    "aliases": ["bookkeeping", "book keeping"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Tally",
+    "aliases": ["tally", "tally prime", "tallyprime"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Goods and Services Tax",
+    "aliases": ["gst", "goods and services tax"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Income Tax",
+    "aliases": ["income tax", "taxation"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "QuickBooks",
+    "aliases": ["quickbooks", "intuit quickbooks"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Financial Reporting",
+    "aliases": ["financial reporting", "finance reporting"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Accounts Payable",
+    "aliases": ["accounts payable", "ap"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Accounts Receivable",
+    "aliases": ["accounts receivable", "ar"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Financial Analysis",
+    "aliases": ["financial analysis", "finance analysis"],
+    "category": "Finance"
+  },
+  {
+    "canonicalName": "Microsoft Excel",
+    "aliases": ["excel", "ms excel", "microsoft excel"],
+    "category": "Operations"
+  },
+  {
+    "canonicalName": "Microsoft Office",
+    "aliases": ["microsoft office", "ms office", "office suite"],
+    "category": "Operations"
+  },
+  {
+    "canonicalName": "Data Entry",
+    "aliases": ["data entry", "data processing"],
+    "category": "Operations"
+  },
+  {
+    "canonicalName": "Documentation",
+    "aliases": ["documentation", "document management"],
+    "category": "Operations"
+  },
+  {
+    "canonicalName": "Process Improvement",
+    "aliases": ["process improvement", "business process improvement"],
+    "category": "Operations"
+  },
+  {
+    "canonicalName": "Management Information Systems Reporting",
+    "aliases": ["mis", "mis reporting", "management information systems"],
+    "category": "Operations"
+  },
+  {
+    "canonicalName": "Customer Support",
+    "aliases": ["customer support", "customer care"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Customer Relationship Management",
+    "aliases": ["crm", "customer relationship management"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Ticketing Systems",
+    "aliases": ["ticketing systems", "ticket management", "help desk"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Customer Service",
+    "aliases": ["customer service", "client service"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Email Support",
+    "aliases": ["email support", "email handling"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Chat Support",
+    "aliases": ["chat support", "live chat support"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Voice Process",
+    "aliases": ["voice process", "voice support", "inbound calling", "outbound calling"],
+    "category": "Customer Support"
+  },
+  {
+    "canonicalName": "Communication",
+    "aliases": ["communication", "communication skills"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Problem Solving",
+    "aliases": ["problem solving", "problem-solving"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Critical Thinking",
+    "aliases": ["critical thinking", "analytical thinking"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Teamwork",
+    "aliases": ["teamwork", "team player", "collaboration"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Leadership",
+    "aliases": ["leadership", "leadership skills"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Time Management",
+    "aliases": ["time management", "time-management"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Adaptability",
+    "aliases": ["adaptability", "flexibility"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Presentation Skills",
+    "aliases": ["presentation skills", "presentations", "public speaking"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Analytical Skills",
+    "aliases": ["analytical skills", "analysis"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Project Management",
+    "aliases": ["project management", "project planning"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "Stakeholder Management",
+    "aliases": ["stakeholder management", "stakeholder communication"],
+    "category": "Professional Skills"
+  },
+  {
+    "canonicalName": "ServiceNow",
+    "aliases": ["servicenow", "service now"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Salesforce",
+    "aliases": ["salesforce", "salesforce crm"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "SAP",
+    "aliases": ["sap", "sap erp"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Oracle",
+    "aliases": ["oracle", "oracle database", "oracle cloud"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Microsoft Dynamics 365",
+    "aliases": ["dynamics 365", "microsoft dynamics", "d365"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Workday",
+    "aliases": ["workday", "workday hcm"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Zoho CRM",
+    "aliases": ["zoho crm", "zoho"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "HubSpot CRM",
+    "aliases": ["hubspot", "hubspot crm"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Jira",
+    "aliases": ["jira", "atlassian jira"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Confluence",
+    "aliases": ["confluence", "atlassian confluence"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "GitHub",
+    "aliases": ["github", "git hub"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "GitLab",
+    "aliases": ["gitlab"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Jenkins",
+    "aliases": ["jenkins", "jenkins ci"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Docker",
+    "aliases": ["docker", "docker containers", "containerization"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Kubernetes",
+    "aliases": ["kubernetes", "k8s"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Tableau",
+    "aliases": ["tableau", "tableau desktop"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Power BI",
+    "aliases": ["power bi", "microsoft power bi"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Microsoft Power Apps",
+    "aliases": ["power apps", "powerapps"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Microsoft Power Automate",
+    "aliases": ["power automate", "microsoft flow"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Snowflake",
+    "aliases": ["snowflake", "snowflake data cloud"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Databricks",
+    "aliases": ["databricks"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Informatica",
+    "aliases": ["informatica", "informatica powercenter"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "MuleSoft",
+    "aliases": ["mulesoft", "mule soft", "anypoint platform"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Boomi",
+    "aliases": ["boomi", "dell boomi"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "UiPath",
+    "aliases": ["uipath", "ui path"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Automation Anywhere",
+    "aliases": ["automation anywhere", "aa360"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Blue Prism",
+    "aliases": ["blue prism", "blueprism"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Splunk",
+    "aliases": ["splunk"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Elastic Stack",
+    "aliases": ["elastic stack", "elk stack", "elasticsearch", "logstash", "kibana"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "MongoDB",
+    "aliases": ["mongodb", "mongo"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Redis",
+    "aliases": ["redis", "redis cache"],
+    "category": "Enterprise Platform"
+  },
+  {
+    "canonicalName": "Firebase",
+    "aliases": ["firebase", "google firebase", "firestore"],
+    "category": "Enterprise Platform"
   }
 ]
