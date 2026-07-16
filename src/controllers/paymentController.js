@@ -138,18 +138,16 @@ exports.verifyPayment = async (req, res, next) => {
         .populate('recipient', 'name email');
 
       // 4. Send Emails WITH THE ZOOM LINKS INCLUDED!
+// 4. Send Emails (WITHOUT Zoom Links - Wait for Brevo 5-min reminder)
       try {
-        const expertJoinLink = populatedRequest.zoomMeeting?.startUrl || "Zoom link pending - Check Admin Dashboard";
-        const studentJoinLink = populatedRequest.zoomMeeting?.joinUrl || "Zoom link pending - Check App later";
+        const expertMessage = `Hello ${populatedRequest.recipient.name},\n\nGreat news! ${populatedRequest.requester.name} has successfully paid ₹${populatedRequest.amount} for your upcoming session.\n\nYour session starts at: ${new Date(populatedRequest.scheduledAt).toLocaleString()}.\n\n🎥 You will receive an automated email reminder with your Host Video Link 5 minutes before the session starts. You can also access it directly from your Appointments dashboard.\n\nThank you for choosing BacktoBase!`;
 
-        const expertMessage = `Hello ${populatedRequest.recipient.name},\n\nGreat news! ${populatedRequest.requester.name} has successfully paid ₹${populatedRequest.amount} for your upcoming session.\n\nYour session starts at: ${new Date(populatedRequest.scheduledAt).toLocaleString()}.\n\n🚨 YOUR HOST MEETING LINK: ${expertJoinLink}\n(Do not share this link with anyone else. It gives host privileges.)\n\nThank you for choosing BacktoBase!`;
-
-        const studentMessage = `Hi ${populatedRequest.requester.name},\n\nPayment Successful! Your session is confirmed.\n\nHere are your receipt details:\n\n- Amount Paid: ₹${populatedRequest.amount}\n- Expert: ${populatedRequest.recipient.name}\n- Session Time: ${new Date(populatedRequest.scheduledAt).toLocaleString()}\n- Transaction ID: ${razorpay_payment_id}\n\n🎥 YOUR JOIN LINK: ${studentJoinLink}\n\nWe will email you a reminder 5 minutes before it starts.\n\nThank you for using BacktoBase!`;
+        const studentMessage = `Hi ${populatedRequest.requester.name},\n\nPayment Successful! Your session is confirmed.\n\nHere are your receipt details:\n\n- Amount Paid: ₹${populatedRequest.amount}\n- Expert: ${populatedRequest.recipient.name}\n- Session Time: ${new Date(populatedRequest.scheduledAt).toLocaleString()}\n- Transaction ID: ${razorpay_payment_id}\n\n🎥 You will receive an automated email reminder with your Join Video Link 5 minutes before the session starts. You can also access it directly from your Appointments dashboard.\n\nThank you for using BacktoBase!`;
 
         await Promise.all([
           sendEmail({
             email: populatedRequest.recipient.email,
-            subject: '💰 Payment Received - New BacktoBase Session!',
+            subject: '💰 Payment Received - Session Confirmed!',
             message: expertMessage
           }),
           sendEmail({
@@ -159,11 +157,10 @@ exports.verifyPayment = async (req, res, next) => {
           })
         ]);
 
-        console.log('📧 Both Payment & Receipt emails sent successfully (with Zoom Links)!');
+        console.log('📧 Both Payment & Receipt emails sent successfully (Waiting for Brevo reminder)!');
       } catch (emailErr) {
         console.error('Email failed to send, but payment & Zoom were successful:', emailErr);
       }
-
       res.status(200).json({ success: true, message: 'Payment verified and Zoom generated successfully' });
     } else {
       res.status(400).json({ success: false, error: 'Invalid Signature. Payment Fraud Detected.' });

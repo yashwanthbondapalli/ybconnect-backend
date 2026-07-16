@@ -84,7 +84,7 @@ exports.updateRequestStatus = async (req, res, next) => {
        return res.status(400).json({ success: false, error: `This request is already ${callRequest.status}.` });
     }
 
-    // 🚨 NEW 10-MINUTE BUFFER CHECK (For Experts accepting sessions)
+    // 🚨 4. 10-MINUTE BUFFER CHECK (For Experts accepting sessions)
     if (isRecipient && status === 'accepted' && scheduledAt) {
       const scheduledTimeMs = new Date(scheduledAt).getTime();
       const tenMinsFromNowMs = Date.now() + (10 * 60 * 1000);
@@ -97,42 +97,18 @@ exports.updateRequestStatus = async (req, res, next) => {
       }
     }
 
-    // 4. Update basic fields
+    // 5. Update basic fields (Accept the request, set time, set price)
     callRequest.status = status;
     if (scheduledAt) callRequest.scheduledAt = scheduledAt;
     if (amount) callRequest.amount = amount;
     
-    // 5. ZOOM LOGIC (Only runs if the EXPERT is accepting)
-    if (isRecipient && (status === 'accepted' || status === 'confirmed') && callRequest.scheduledAt) {
-      if (!callRequest.zoomMeeting || !callRequest.zoomMeeting.joinUrl) {
-        try {
-          const zoomData = await createZoomMeeting(
-            callRequest.recipient, 
-            callRequest.topic || 'BacktoBase Consultation', 
-            callRequest.scheduledAt, 
-            duration || 30 
-          );
+    // 🚨 6. ZOOM LOGIC HAS BEEN DELETED FROM HERE! 
+    // It will now ONLY be triggered by your paymentController.js after a successful Razorpay payment.
 
-          callRequest.zoomMeeting = {
-            meetingId: zoomData.meetingId,
-            startUrl: zoomData.startUrl, 
-            joinUrl: zoomData.joinUrl,   
-            status: 'waiting'
-          };
-        } catch (zoomError) {
-          console.error("Zoom Generation Failed:", zoomError.message);
-          return res.status(500).json({ 
-            success: false, 
-            error: 'Failed to generate Zoom link. Ensure your Zoom account is connected.' 
-          });
-        }
-      }
-    }
-
-    // 6. Save everything to MongoDB
+    // 7. Save everything to MongoDB
     await callRequest.save();
     
-    // 7. Re-fetch to return to frontend
+    // 8. Re-fetch to return to frontend
     callRequest = await CallRequest.findById(req.params.id)
       .populate('requester', 'name email')
       .populate('recipient', 'name email');
