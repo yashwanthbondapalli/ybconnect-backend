@@ -1,6 +1,7 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const generateUniqueSlug = require('../utils/generateSlug');
+
 // @desc    Get current user's profile
 exports.getCurrentUserProfile = async (req, res, next) => {
   try {
@@ -27,15 +28,18 @@ exports.getCurrentUserProfile = async (req, res, next) => {
 // @desc    Create or Update Profile
 exports.upsertProfile = async (req, res, next) => {
   try {
+    // 1. Extract ALL fields (Expert & Student) from the request body
     const {
+      role, yearOfStudy, university, major, minor, studentLookingFor, 
+      techInterests, techSkills, softSkills, studentProjects, internships, certifications, leadership, interests, // 🚀 NEW STUDENT FIELDS
       name, phoneNumber, designation, companyName, 
       shortDescription, whyBookMe, category, city, bio, 
-      skills, industries, lookingFor, experience, servicesOffered, portfolio, availability,
+      skills, industries, experience, servicesOffered, portfolio, availability,
       yearsOfExperience, languages, achievements, hourlyRate, 
       profileImage, socialLinks, upiId
     } = req.body;
 
-    // 🚨 UPGRADED FIX: Update Name AND dynamically regenerate the Slug
+    // 2. Update Name AND dynamically regenerate the Slug
     if (name && name.trim() !== '') {
       const cleanName = name.trim();
       const currentUser = await User.findById(req.user.id);
@@ -52,41 +56,61 @@ exports.upsertProfile = async (req, res, next) => {
       }
     }
 
-    // 2. Build the profile object
-const profileFields = {
+    // 3. Build the profileFields object
+    const profileFields = {
       user: req.user.id,
-      designation, companyName, shortDescription, whyBookMe,
-      category, city, bio,
+      role: role || 'expert',
+      
+      // Basic & Shared
+      designation, companyName, shortDescription, whyBookMe, category, city, bio,
       yearsOfExperience: Number(yearsOfExperience) || 0, 
       achievements,
       hourlyRate: Number(hourlyRate) || 0,
       profileImage: profileImage || 'default-avatar.png',
+      
+      // Student Specific Text Fields
+      yearOfStudy, university, major, minor, studentLookingFor, techInterests,
+      studentProjects, internships, certifications, leadership
     };
 
-  if (upiId && upiId.trim() !== '') profileFields.upiId = upiId.trim();
     if (phoneNumber && phoneNumber.trim() !== '') profileFields.phoneNumber = phoneNumber;
     if (availability) profileFields.availability = availability;
 
-    // Handle Arrays & Objects securely
-    if (skills) profileFields.skills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
-    if (languages) profileFields.languages = Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim()); 
-    if (industries) profileFields.industries = Array.isArray(industries) ? industries : industries.split(',').map(i => i.trim()); 
-    if (lookingFor) profileFields.lookingFor = Array.isArray(lookingFor) ? lookingFor : lookingFor.split(',').map(l => l.trim()); 
+    // 4. Payout Switch Logic (Cleaned up)
+    if (upiId && upiId.trim() !== '') {
+      profileFields.upiId = upiId.trim();
+      profileFields.isPayoutActive = true; 
+    } else {
+      profileFields.upiId = '';
+      profileFields.isPayoutActive = false;
+    }
 
-    // Handle Structured Arrays (Expect these to be passed as JSON strings if using FormData, or standard Arrays if JSON)
+    // 5. Handle Arrays (Comma separated strings from frontend)
+    if (skills) profileFields.skills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim()).filter(Boolean);
+    if (techSkills) profileFields.techSkills = Array.isArray(techSkills) ? techSkills : techSkills.split(',').map(s => s.trim()).filter(Boolean);
+    if (softSkills) profileFields.softSkills = Array.isArray(softSkills) ? softSkills : softSkills.split(',').map(s => s.trim()).filter(Boolean);
+    if (languages) profileFields.languages = Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim()).filter(Boolean); 
+    if (industries) profileFields.industries = Array.isArray(industries) ? industries : industries.split(',').map(i => i.trim()).filter(Boolean); 
+    if (interests) profileFields.interests = Array.isArray(interests) ? interests : interests.split(',').map(i => i.trim()).filter(Boolean); 
+
+    // 6. Handle Structured Arrays (JSON)
     if (experience) profileFields.experience = typeof experience === 'string' ? JSON.parse(experience) : experience;
     if (servicesOffered) profileFields.servicesOffered = typeof servicesOffered === 'string' ? JSON.parse(servicesOffered) : servicesOffered;
     if (portfolio) profileFields.portfolio = typeof portfolio === 'string' ? JSON.parse(portfolio) : portfolio;
 
+    // 7. Handle Social Links (Including new GitHub & LeetCode)
     if (socialLinks) {
       profileFields.socialLinks = {
         linkedin: socialLinks.linkedin || '',
         instagram: socialLinks.instagram || '',
         xUrl: socialLinks.xUrl || '',
-        website: socialLinks.website || ''
+        website: socialLinks.website || '',
+        github: socialLinks.github || '',     // 🚀 ADDED
+        leetcode: socialLinks.leetcode || ''  // 🚀 ADDED
       };
     }
-// Save to MongoDB
+
+    // 8. Save to MongoDB
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileFields },
@@ -96,6 +120,7 @@ const profileFields = {
     res.status(200).json({ success: true, data: profile });
 
   } catch (error) {
+    console.error("Profile Upsert Error:", error);
     next(error);
   }
 };
