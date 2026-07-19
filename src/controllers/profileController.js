@@ -183,6 +183,29 @@ exports.getProfileBySlug = async (req, res) => {
   }
 };
 
+// Add this new function to controllers/profileController.js
+exports.getProfileByAnyId = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // First try finding by User ID (standard)
+    let profile = await Profile.findOne({ user: id }).populate('user', 'name slug');
+    
+    // If not found, try finding by the Profile's own ID
+    if (!profile) {
+      profile = await Profile.findById(id).populate('user', 'name slug');
+    }
+
+    if (!profile) {
+      return res.status(404).json({ success: false, error: 'Profile not found' });
+    }
+
+    res.status(200).json({ success: true, data: profile });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Toggle Live Status (Instant Solver)
 exports.toggleLiveStatus = async (req, res, next) => {
   try {

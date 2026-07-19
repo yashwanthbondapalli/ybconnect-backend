@@ -5,7 +5,8 @@ const {
   upsertProfile, 
   getProfileByUserId, 
   getProfileBySlug,
-  toggleLiveStatus 
+  toggleLiveStatus,
+  getProfileByAnyId
 } = require('../controllers/profileController');
 const { protect } = require('../middlewares/authMiddleware');
 
@@ -21,6 +22,9 @@ router.put('/live-status', protect, toggleLiveStatus);
 // Fetch anyone's profile by their User ID
 router.route('/user/:userId')
   .get(protect, getProfileByUserId);
+
+  // Add this to profileRoutes.js
+router.get('/any/:id', protect, getProfileByAnyId);
   
 // Fetch by slug
 router.get('/slug/:slug', getProfileBySlug);

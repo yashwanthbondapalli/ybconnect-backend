@@ -20,10 +20,8 @@ function evaluateRules(rawText, contactInfo, sections, missingSkills) {
     }
 
     if (contactInfo.linkedin) {
-        strengths.push("LinkedIn profile included.");
     } else {
-        weaknesses.push("No LinkedIn profile detected.");
-        suggestions.push("Include a link to your LinkedIn profile. 87% of recruiters check LinkedIn during the hiring process.");
+        suggestions.push("Include a link to your LinkedIn profile. and github profile, leetcode 87% of recruiters check LinkedIn during the hiring process.");
     }
 
     // Rule 2: Resume Length (Word Count Heuristic)
