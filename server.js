@@ -21,6 +21,7 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const reviewerRoutes = require('./src/modules/resume-reviewer/routes/reviewer.routes.js');
 
 
+
 const app = express();
 // 🚨 GLOBAL LIGHT SWITCH: Log every single request that hits the server
 // 🚨 UPDATED GLOBAL LIGHT SWITCH: Log incoming request headers
@@ -79,6 +80,8 @@ app.use('/api/v1/resume-reviewer', reviewerRoutes);
 
 const requestRoutes = require('./src/routes/requestRoutes');
 app.use('/api/v1/requests', requestRoutes);
+
+app.use('/api/v1/reports', require('./src/routes/reportRoutes'));
 
 // Global Error Handler
 app.use(errorHandler);
