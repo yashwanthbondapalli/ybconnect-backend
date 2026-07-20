@@ -107,7 +107,7 @@ exports.verifyPayment = async (req, res, next) => {
       try {
         console.log("Generating Zoom Meeting for Request:", requestId);
         // Assuming a default 60-minute session. Adjust if you store duration in CallRequest.
-        const durationMinutes = 60; 
+        const durationMinutes = 40; 
         
         const zoomDetails = await zoomHelper.createZoomMeeting(
           callRequest.recipient, 
