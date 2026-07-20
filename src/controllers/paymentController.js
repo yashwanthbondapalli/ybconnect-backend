@@ -137,12 +137,23 @@ exports.verifyPayment = async (req, res, next) => {
         .populate('requester', 'name email')
         .populate('recipient', 'name email');
 
-      // 4. Send Emails WITH THE ZOOM LINKS INCLUDED!
-// 4. Send Emails (WITHOUT Zoom Links - Wait for Brevo 5-min reminder)
+// 4. Send Emails WITH THE EXACT IST TIME!
       try {
-        const expertMessage = `Hello ${populatedRequest.recipient.name},\n\nGreat news! ${populatedRequest.requester.name} has successfully paid ₹${populatedRequest.amount} for your upcoming session.\n\nYour session starts at: ${new Date(populatedRequest.scheduledAt).toLocaleString()}.\n\n🎥 You will receive an automated email reminder with your Host Video Link 5 minutes before the session starts. You can also access it directly from your Appointments dashboard.\n\nThank you for choosing BacktoBase!`;
+        // 🚨 THE TIMEZONE FIX: Force the server to format in Indian Standard Time
+        const formattedISTTime = new Date(populatedRequest.scheduledAt).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short', 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true
+        });
 
-        const studentMessage = `Hi ${populatedRequest.requester.name},\n\nPayment Successful! Your session is confirmed.\n\nHere are your receipt details:\n\n- Amount Paid: ₹${populatedRequest.amount}\n- Expert: ${populatedRequest.recipient.name}\n- Session Time: ${new Date(populatedRequest.scheduledAt).toLocaleString()}\n- Transaction ID: ${razorpay_payment_id}\n\n🎥 You will receive an automated email reminder with your Join Video Link 5 minutes before the session starts. You can also access it directly from your Appointments dashboard.\n\nThank you for using BacktoBase!`;
+        const expertMessage = `Hello ${populatedRequest.recipient.name},\n\nGreat news! ${populatedRequest.requester.name} has successfully paid ₹${populatedRequest.amount} for your upcoming session.\n\nYour session starts at: ${formattedISTTime} (IST).\n\n🎥 You will receive an automated email reminder with your Host Video Link 5 minutes before the session starts. You can also access it directly from your Appointments dashboard.\n\nThank you for choosing YB Connect!`;
+
+        const studentMessage = `Hi ${populatedRequest.requester.name},\n\nPayment Successful! Your session is confirmed.\n\nHere are your receipt details:\n\n- Amount Paid: ₹${populatedRequest.amount}\n- Expert: ${populatedRequest.recipient.name}\n- Session Time: ${formattedISTTime} (IST)\n- Transaction ID: ${razorpay_payment_id}\n\n🎥 You will receive an automated email reminder with your Join Video Link 5 minutes before the session starts. You can also access it directly from your Appointments dashboard.\n\nThank you for using YB Connect!`;
 
         await Promise.all([
           sendEmail({
