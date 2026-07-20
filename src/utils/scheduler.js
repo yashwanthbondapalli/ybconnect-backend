@@ -44,3 +44,48 @@ cron.schedule('0 0 * * *', async () => {
     console.error('❌ CRON Error:', error); 
   }
 });
+
+// 🚨 RUNS EVERY 1 MINUTE TO CHECK FOR MEETINGS STARTING IN 5 MINS
+cron.schedule('* * * * *', async () => {
+  try {
+    const now = new Date();
+    // Look for sessions starting between 4 and 5 minutes from right now
+    const inFiveMins = new Date(now.getTime() + 5 * 60000);
+    const inFourMins = new Date(now.getTime() + 4 * 60000);
+
+    const upcomingSessions = await CallRequest.find({
+      status: 'accepted',
+      paymentStatus: 'paid',
+      scheduledAt: { $gt: inFourMins, $lte: inFiveMins },
+      reminderEmailSent: { $ne: true } // Prevents spamming them every minute!
+    }).populate('requester', 'name email').populate('recipient', 'name email');
+
+    for (const session of upcomingSessions) {
+      // Ensure the Zoom links actually exist before sending the email
+      if (session.zoomMeeting && session.zoomMeeting.startUrl) {
+        
+        // 1. Send Email to EXPERT (Host Link)
+        await sendEmail({
+          email: session.recipient.email,
+          subject: '🚨 Session Starts in 5 Minutes!',
+          message: `Hi ${session.recipient.name},\n\nYour student ${session.requester.name} is waiting! Your session starts in 5 minutes.\n\nStart the meeting here: ${session.zoomMeeting.startUrl}\n\nHave a great session!`
+        });
+
+        // 2. Send Email to STUDENT (Join Link)
+        await sendEmail({
+          email: session.requester.email,
+          subject: '🚨 Session Starts in 5 Minutes!',
+          message: `Hi ${session.requester.name},\n\nYour mentor ${session.recipient.name} is ready! Your session starts in 5 minutes.\n\nJoin the meeting here: ${session.zoomMeeting.joinUrl}\n\nHave a great session!`
+        });
+
+        console.log(`✅ 5-Min Reminders sent for session ${session._id}`);
+        
+        // Mark as sent so we don't send it again
+        session.reminderEmailSent = true;
+        await session.save();
+      }
+    }
+  } catch (error) {
+    console.error('❌ 5-Min Reminder Cron Error:', error);
+  }
+});

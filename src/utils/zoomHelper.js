@@ -1,19 +1,20 @@
 const axios = require('axios');
-const Profile = require('../models/Profile'); // Adjust path to your Profile model
+const Profile = require('../models/Profile');
 
 /**
  * 1. THE TOKEN REFRESHER
- * Silently gets a fresh 60-minute access token using the permanent refresh token.
+ * Only runs when the current token is officially dead.
  */
 const refreshZoomToken = async (expertProfile) => {
   try {
     const authHeader = Buffer.from(`${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`).toString('base64');
 
-    const response = await axios.post('https://zoom.us/oauth/token', null, {
-      params: {
-        grant_type: 'refresh_token',
-        refresh_token: expertProfile.zoomCredentials.refreshToken,
-      },
+    // 🚨 FIX 1: Zoom strongly prefers URL-Encoded Body over Query Params for tokens!
+    const params = new URLSearchParams();
+    params.append('grant_type', 'refresh_token');
+    params.append('refresh_token', expertProfile.zoomCredentials.refreshToken);
+
+    const response = await axios.post('https://zoom.us/oauth/token', params, {
       headers: {
         'Authorization': `Basic ${authHeader}`,
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -21,26 +22,29 @@ const refreshZoomToken = async (expertProfile) => {
     });
 
     const { access_token, refresh_token } = response.data;
+    
+    // 🚨 FIX 2: Fallback in case Zoom doesn't send a new refresh token (prevents wiping the DB)
+    const safeRefreshToken = refresh_token || expertProfile.zoomCredentials.refreshToken;
 
     // Save the fresh tokens back to the database
     expertProfile.zoomCredentials.accessToken = access_token;
-    expertProfile.zoomCredentials.refreshToken = refresh_token; // Zoom gives us a new refresh token every time too!
-    // 🚨 FIX 1: FORCE MONGOOSE TO SAVE THE NESTED OBJECT
-    expertProfile.markModified('zoomCredentials');
-   await Profile.updateOne(
-  { _id: expertProfile._id },
-  { 
-    $set: { 
-      'zoomCredentials.accessToken': access_token,
-      'zoomCredentials.refreshToken': refresh_token
-    } 
-  }
-);
+    expertProfile.zoomCredentials.refreshToken = safeRefreshToken;
+    
+    await Profile.updateOne(
+      { _id: expertProfile._id },
+      { 
+        $set: { 
+          'zoomCredentials.accessToken': access_token,
+          'zoomCredentials.refreshToken': safeRefreshToken
+        } 
+      }
+    );
 
     return access_token;
   } catch (error) {
     console.error('Error refreshing Zoom token:', error.response?.data || error.message);
-    // 🚨 ENTERPRISE SECURITY FIX: If Zoom rejects the refresh token, sever the connection in DB.
+    
+    // If Zoom completely rejects the refresh attempt, sever the connection safely.
     if (error.response && (error.response.status === 400 || error.response.status === 401)) {
        await Profile.updateOne(
          { _id: expertProfile._id },
@@ -55,53 +59,70 @@ const refreshZoomToken = async (expertProfile) => {
 
 /**
  * 2. THE MEETING GENERATOR
- * Called exactly when an appointment is confirmed/paid.
+ * Uses Lazy Refreshing to prevent Race Conditions & Token Destruction!
  */
 exports.createZoomMeeting = async (expertUserId, topic, startTime, durationMinutes) => {
-  try {
-    // 1. Find the Expert's profile using their User ID
-    const expertProfile = await Profile.findOne({ user: expertUserId });
+  const expertProfile = await Profile.findOne({ user: expertUserId });
 
-    if (!expertProfile || !expertProfile.zoomCredentials?.isConnected) {
-      throw new Error('Expert has not connected their Zoom account.');
-    }
+  if (!expertProfile || !expertProfile.zoomCredentials?.isConnected) {
+    throw new Error('Expert has not connected their Zoom account.');
+  }
 
-    // 2. ALWAYS refresh the token first to avoid the 1-Hour Trap
-    const freshAccessToken = await refreshZoomToken(expertProfile);
+  let currentToken = expertProfile.zoomCredentials.accessToken;
 
-    // 3. Tell Zoom to create the meeting
-    const response = await axios.post(
+  // A helper function so we don't write the Zoom request twice
+  const executeZoomRequest = (token) => {
+    return axios.post(
       'https://api.zoom.us/v2/users/me/meetings',
       {
         topic: topic || 'BacktoBase Consultation',
-        type: 2, // Type 2 means a Scheduled Meeting
-        start_time: startTime, // Must be in ISO 8601 format (e.g., "2026-04-10T10:00:00Z")
+        type: 2, 
+        start_time: startTime, 
         duration: durationMinutes,
         settings: {
           host_video: true,
           participant_video: true,
           join_before_host: false,
-          waiting_room: true, // CRITICAL: Prevents link-sharing fraud
+          waiting_room: true, 
           mute_upon_entry: true,
         },
       },
       {
         headers: {
-          'Authorization': `Bearer ${freshAccessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       }
     );
+  };
 
-    // 4. Return the golden URLs and Meeting ID!
+  try {
+    // 🚀 ATTEMPT 1: Try creating the meeting immediately with the token we already have
+    const response = await executeZoomRequest(currentToken);
+    
     return {
       meetingId: response.data.id,
-      startUrl: response.data.start_url, // Private link for the EXPERT ONLY
-      joinUrl: response.data.join_url,   // Public link for the STUDENT
+      startUrl: response.data.start_url, 
+      joinUrl: response.data.join_url,   
     };
 
   } catch (error) {
-    console.error('Error creating Zoom meeting:', error.response?.data || error.message);
-    throw error;
+    // If the error IS NOT a 401 Expired error, it's a real bug. Throw it.
+    if (!error.response || error.response.status !== 401) {
+      console.error('Error creating Zoom meeting:', error.response?.data || error.message);
+      throw error;
+    }
+
+    // 🚀 ATTEMPT 2: The token was officially expired (401). Let's refresh it and try exactly once more!
+    console.log("⚠️ Zoom Token Expired. Refreshing token gracefully...");
+    const freshToken = await refreshZoomToken(expertProfile);
+    
+    const retryResponse = await executeZoomRequest(freshToken);
+
+    return {
+      meetingId: retryResponse.data.id,
+      startUrl: retryResponse.data.start_url,
+      joinUrl: retryResponse.data.join_url,
+    };
   }
 };
