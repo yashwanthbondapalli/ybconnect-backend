@@ -36,7 +36,7 @@ exports.upsertProfile = async (req, res, next) => {
       shortDescription, whyBookMe, category, city, bio, 
       skills, industries, experience, servicesOffered, portfolio, availability,
       yearsOfExperience, languages, achievements, hourlyRate, 
-      profileImage, socialLinks, upiId
+      profileImage, socialLinks,
     } = req.body;
 
     // 2. Update Name AND dynamically regenerate the Slug
@@ -76,14 +76,7 @@ exports.upsertProfile = async (req, res, next) => {
     if (phoneNumber && phoneNumber.trim() !== '') profileFields.phoneNumber = phoneNumber;
     if (availability) profileFields.availability = availability;
 
-    // 4. Payout Switch Logic (Cleaned up)
-    if (upiId && upiId.trim() !== '') {
-      profileFields.upiId = upiId.trim();
-      profileFields.isPayoutActive = true; 
-    } else {
-      profileFields.upiId = '';
-      profileFields.isPayoutActive = false;
-    }
+
 
     // 5. Handle Arrays (Comma separated strings from frontend)
     if (skills) profileFields.skills = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim()).filter(Boolean);
@@ -130,7 +123,7 @@ exports.getProfileByUserId = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.params.userId })
       // 🚨 SECURITY FIX: Exclude sensitive financial data from public view
-      .select('-upiId') 
+      
       // 🚨 SECURITY FIX: Only grab public info from the User model (no email/phone)
       .populate('user', 'name slug'); 
 
@@ -157,7 +150,7 @@ exports.getProfileBySlug = async (req, res) => {
 
     const profile = await Profile.findOne({ user: user._id })
       // 🚨 SECURITY FIX: Exclude UPI ID
-      .select('-upiId') 
+      
       // 🚨 SECURITY FIX: Do not leak email or phone number to the public!
       .populate('user', 'name slug'); 
 
@@ -234,5 +227,68 @@ exports.toggleLiveStatus = async (req, res, next) => {
   } catch (error) {
     console.error("Live Toggle Error:", error);
     res.status(500).json({ success: false, message: 'Server error while toggling live status' });
+  }
+};
+
+// @desc    Get all Student Profiles for the Home Screen Talent Section
+// @route   GET /api/v1/profile/talent
+// @access  Public or Protected
+exports.getStudentTalent = async (req, res, next) => {
+  try {
+    const { intent } = req.query; // Gets the filter from the frontend (e.g., ?intent=Internships)
+    
+    // Base query: Only find students
+    let query = { role: 'student' };
+
+    // If the user clicked a specific filter (and not 'All Talent')
+    if (intent && intent !== 'All') {
+      // 🚀 THE MAGIC: Search INSIDE the comma-separated string!
+      query.studentLookingFor = { $regex: intent, $options: 'i' }; 
+    }
+
+    const students = await Profile.find(query)
+      .populate('user', 'name slug')
+      .sort({ createdAt: -1 }); // Newest students first
+
+    res.status(200).json({ 
+      success: true, 
+      count: students.length,
+      data: students 
+    });
+  } catch (error) {
+    console.error("Error fetching talent:", error);
+    res.status(500).json({ success: false, error: 'Server Error fetching talent' });
+  }
+};
+
+// @desc    Auto-save just the profile picture
+
+exports.updateProfileImage = async (req, res, next) => {
+  try {
+    // 🚨 FIX: Extract the role from the request body
+    const { profileImage, role } = req.body; 
+    
+    if (!profileImage) {
+      return res.status(400).json({ success: false, error: 'No image URL provided' });
+    }
+
+    const profile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      { 
+        $set: { profileImage: profileImage },
+        // 🚨 FIX: If creating a NEW profile, use the role they selected on screen!
+        $setOnInsert: { role: role || 'expert' } 
+      },
+      { 
+        new: true, 
+        upsert: true, 
+        setDefaultsOnInsert: true 
+      } 
+    );
+
+    res.status(200).json({ success: true, data: profile });
+  } catch (error) {
+    console.error("Image Auto-Save Error:", error);
+    res.status(500).json({ success: false, error: 'Failed to auto-save image' });
   }
 };

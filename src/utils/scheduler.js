@@ -2,22 +2,22 @@ const cron = require('node-cron');
 const CallRequest = require('../models/CallRequest');
 const sendEmail = require('./emailHelper');
 
-// 🚨 RUNS AT MIDNIGHT EVERY DAY
-cron.schedule('0 0 * * *', async () => {
+// 🚨 LIVE TEST MODE: RUNS EXACTLY AT 12:00 PM EVERY DAY
+cron.schedule('0 12 * * *', async () => {
   try {
-    // 🚨 UPDATED LOGIC: Look for sessions scheduled over 24 hours ago
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // 🚨 TEST LOGIC: Look for sessions where the scheduled time is in the past
+    const rightNow = new Date();
     
-    console.log('🧪 DAILY CRON: Running Abandoned Session Cleanup...');
+    console.log('🧪 12:00 PM CRON: Running Abandoned Session Cleanup...');
 
     const abandonedSessions = await CallRequest.find({
       status: 'accepted',
       paymentStatus: 'paid', 
-      scheduledAt: { $lt: oneDayAgo } // Finds sessions older than 24 hours
+      scheduledAt: { $lt: rightNow } // Finds any session older than right now
     }).populate('requester', 'name email').populate('recipient', 'name email');
 
     if (abandonedSessions.length === 0) {
-      console.log('✅ No abandoned sessions found.');
+      console.log('✅ No abandoned sessions found at 12:00 PM.');
       return;
     }
 
@@ -33,7 +33,7 @@ cron.schedule('0 0 * * *', async () => {
         await session.save();
         console.log(`✅ Expert Paid for session ${session._id}: Student No-Show.`);
       } else {
-        // 🚫 STUDENT REFUNDED: Total No-Show (Expert didn't join either).
+        // 🚫 STUDENT REFUNDED: Total No-Show (Expert didn't join).
         session.paymentStatus = 'failed';
         if (session.zoomMeeting) session.zoomMeeting.status = 'expert_no_show';
         await session.save();
@@ -44,6 +44,8 @@ cron.schedule('0 0 * * *', async () => {
     console.error('❌ CRON Error:', error); 
   }
 });
+
+// ... Keep your 5-minute reminder cron exactly as it is below this! ...
 
 // 🚨 RUNS EVERY 1 MINUTE TO CHECK FOR MEETINGS STARTING IN 5 MINS
 cron.schedule('* * * * *', async () => {

@@ -4,8 +4,8 @@ const { createOrder, verifyPayment,releaseEscrow,createLinkedAccount,getAdminPay
   razorpayWebhook} = require('../controllers/paymentController');
 const { protect } = require('../middlewares/authMiddleware'); // Ensures only logged-in users can pay
 // Add this line to your routes file
-const { requestPayout } = require('../controllers/paymentController');
 
+const { requestPayout, getRefundStats, requestRefundPayout } = require('../controllers/paymentController');
 
 const router = express.Router();
 // 🚨 UNPROTECTED ROUTE: Razorpay servers will hit this directly
@@ -20,7 +20,8 @@ router.post('/request-payout', protect, requestPayout);
 router.post('/link-account', protect, createLinkedAccount);
 // Add this to your existing routes
 router.post('/release-escrow', protect, releaseEscrow);
-
+router.get('/refund-stats', protect, getRefundStats);
+router.post('/request-refund', protect, requestRefundPayout);
 
 
 module.exports = router;

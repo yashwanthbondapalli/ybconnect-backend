@@ -41,8 +41,7 @@ const ProfileSchema = new mongoose.Schema({
   interests: { type: [String], default: [] }, // Student
   
   // 💰 -- LOGISTICS & PAYMENTS (SHARED) --
-  upiId: { type: String, trim: true },
-  isPayoutActive: { type: Boolean, default: false },
+
   zoomCredentials: { accessToken: String, refreshToken: String, accountId: String, isConnected: { type: Boolean, default: false } },
   hourlyRate: { type: Number, default: 0, min: 0 },
   

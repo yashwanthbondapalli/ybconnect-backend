@@ -329,53 +329,29 @@ exports.resetPasswordWithOtp = async (req, res) => {
     res.status(500).json({ success: false, error: 'Server error while resetting password.' });
   }
 };
-
 exports.deleteAccount = async (req, res, next) => {
   try {
     const userId = req.user.id;
+    
+    // 1. Fetch the user first so we have their email for cleanup
     const user = await User.findById(userId);
-
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    const randomSuffix = crypto.randomBytes(4).toString('hex');
+    // 2. HARD DELETE: Permanently wipe their Profile data (Image, Bio, Links, etc.)
+    await Profile.findOneAndDelete({ user: userId });
 
-    user.name = "Deleted User";
-    user.email = `deleted_${userId}_${randomSuffix}@ybconnect.in`;
-    user.phoneNumber = `deleted_${userId}_${randomSuffix}`;
-    user.slug = `deleted_${userId}_${randomSuffix}`;
-    user.expoPushToken = undefined;
-    
-    user.password = crypto.randomBytes(20).toString('hex');
-    user.isDeleted = true;
-    user.deletedAt = Date.now();
-    user.accountStatus = 'deleted';
+    // 3. HARD DELETE: Permanently wipe any dangling OTP codes
+    await OTP.deleteMany({ email: user.email });
 
-    await user.save();
+    // 4. HARD DELETE: Permanently wipe the User account (Email, Password, Name)
+    await User.findByIdAndDelete(userId);
 
-    await Profile.findOneAndUpdate(
-      { user: userId },
-      {
-        $set: {
-          phoneNumber: '',
-          category: '',
-          city: '',
-          companyName: '',
-          designation: '',
-          bio: '',
-          skills: [],
-          languages: [],
-          experience: '',
-          achievements: '',
-          profileImage: 'default-avatar.png',
-          socialLinks: { linkedin: '', instagram: '', xUrl: '', website: '' },
-          zoomCredentials: { accessToken: '', refreshToken: '', accountId: '', isConnected: false }
-        }
-      }
-    );
-
-    res.status(200).json({ success: true, message: 'Account securely deleted and anonymized.' });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Account and all associated data securely and permanently deleted.' 
+    });
 
   } catch (error) {
     console.error("Delete Account Error:", error);

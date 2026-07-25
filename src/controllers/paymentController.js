@@ -22,6 +22,14 @@ exports.createOrder = async (req, res, next) => {
     if (!callRequest) {
       return res.status(404).json({ success: false, error: 'Request not found' });
     }
+    // 🚨 SECURITY PATCH: IDOR PROTECTION 
+    // Ensure the person trying to pay is ACTUALLY the student who created the request!
+    if (callRequest.requester.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Security Alert: You are not authorized to pay for this session.' 
+      });
+    }
     if (callRequest.paymentStatus === 'paid') {
       return res.status(400).json({ success: false, error: 'This session is already paid for.' });
     }
@@ -43,6 +51,48 @@ exports.createOrder = async (req, res, next) => {
         error: 'The expert has not set up their bank account to receive payments yet.' 
       });
     }
+    // 🚨 STEP 1 FIX: THE ZOOM DISASTER PREVENTION
+    // Block the payment entirely if the expert has disconnected their Zoom account!
+// 🚨 FIX 1: THE ZOOM DISASTER PREVENTION (Upgraded)
+    if (!expertProfile.zoomCredentials || expertProfile.zoomCredentials.isConnected !== true) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Payment Blocked: The expert is currently experiencing Zoom connection issues.' 
+      });
+    }
+
+    // 🚨 NEW: THE PRE-FLIGHT ZOOM ALLOCATION
+    // Try to secure the Zoom room BEFORE we ask the student for money!
+    if (!callRequest.zoomMeeting || !callRequest.zoomMeeting.startUrl) {
+      try {
+        console.log(`🔒 Pre-flight Zoom Check: Generating room for request ${requestId} before opening Razorpay...`);
+        const zoomDetails = await zoomHelper.createZoomMeeting(
+          callRequest.recipient, 
+          callRequest.topic, 
+          callRequest.scheduledAt, 
+          40 // 40 min duration
+        );
+        
+        // Save it to the database immediately so it is locked in!
+        callRequest.zoomMeeting = {
+          meetingId: zoomDetails.meetingId,
+          startUrl: zoomDetails.startUrl,
+          joinUrl: zoomDetails.joinUrl,
+          status: 'waiting'
+        };
+        await callRequest.save();
+        console.log(`✅ Pre-flight Zoom secured! Safe to charge student.`);
+
+      } catch (zoomErr) {
+        console.error("🚨 Pre-flight Zoom Error:", zoomErr.message);
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Payment Blocked: The expert\'s Zoom token expired. We cannot take your money until they reconnect.' 
+        });
+      }
+    }
+
+
 
     // Calculate the Math (Razorpay strictly uses Paise, so multiply by 100)
     const totalAmountPaise = Math.round(callRequest.amount * 100);
@@ -98,45 +148,40 @@ exports.verifyPayment = async (req, res, next) => {
       .update(body.toString())
       .digest('hex');
 
-    if (expectedSignature === razorpay_signature) {
+if (expectedSignature === razorpay_signature) {
       // 1. Safe to update Payment Status
       callRequest.paymentStatus = 'paid';
       callRequest.razorpayPaymentId = razorpay_payment_id;
 
-      // 🚨 2. CRITICAL FIX: GENERATE THE ZOOM MEETING IMMEDIATELY
-      try {
-        console.log("Generating Zoom Meeting for Request:", requestId);
-        // Assuming a default 60-minute session. Adjust if you store duration in CallRequest.
-        const durationMinutes = 40; 
+      // 🚨 NEW: THE AUTO-REFUND SAFETY NET
+      // Since we use Pre-Flight Allocation, the link should ALREADY be here.
+      // If it is somehow missing, we instantly push the money to the Refund Wallet!
+      if (!callRequest.zoomMeeting || !callRequest.zoomMeeting.startUrl) {
+        console.error("🚨 CRITICAL BUG: Money taken but no Zoom link exists! Triggering Auto-Refund...");
         
-        const zoomDetails = await zoomHelper.createZoomMeeting(
-          callRequest.recipient, 
-          callRequest.topic, 
-          callRequest.scheduledAt, 
-          durationMinutes
-        );
+        callRequest.status = 'cancelled';
+        callRequest.zoomMeeting = { status: 'expert_no_show' }; // Magically puts money in Refund Wallet
+        await callRequest.save();
 
-        // Save the generated links directly into the database
-        callRequest.zoomMeeting = {
-          meetingId: zoomDetails.meetingId,
-          startUrl: zoomDetails.startUrl,
-          joinUrl: zoomDetails.joinUrl,
-          status: 'waiting'
-        };
-        console.log("Zoom meeting successfully attached to request!");
-      } catch (zoomErr) {
-        // If Zoom fails, we STILL save the payment so the user doesn't lose money, 
-        // but we log a critical error so the admin can manually intervene.
-        console.error("🚨 CRITICAL: Zoom Generation Failed after Payment:", zoomErr.message);
+        const populatedRequest = await CallRequest.findById(requestId).populate('requester', 'name email').populate('recipient', 'name email');
+
+        await sendEmail({
+          email: populatedRequest.requester.email,
+          subject: '⚠️ Error Generating Session Link - Refund Issued',
+          message: `Hi ${populatedRequest.requester.name},\n\nYour payment of ₹${populatedRequest.amount} was successful, but the expert's Zoom account crashed before we could finalize the meeting link.\n\nTo protect your funds, we have instantly transferred this amount to your Refund Wallet. You can withdraw it immediately from your Appointments Dashboard.\n\nWe apologize for the inconvenience.`
+        });
+        
+        return res.status(200).json({ success: true, message: 'Payment verified, but Zoom failed. Refund issued to wallet.' });
       }
 
-      // 3. Save EVERYTHING (Payment details + Zoom details)
+      // 3. Save the final Paid status
       await callRequest.save();
 
       const populatedRequest = await CallRequest.findById(requestId)
         .populate('requester', 'name email')
         .populate('recipient', 'name email');
 
+      // 4. Send Emails WITH THE EXACT IST TIME!
 // 4. Send Emails WITH THE EXACT IST TIME!
       try {
         // 🚨 THE TIMEZONE FIX: Force the server to format in Indian Standard Time
@@ -180,6 +225,11 @@ exports.verifyPayment = async (req, res, next) => {
     next(error);
   }
 };
+
+// 🚨 NEW SAFETY CHECK: Ensure keys exist before hitting Razorpay
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  console.error("⛔ FATAL ERROR: Razorpay API keys are missing from your .env file!");
+}
 
 // 3. Create a Linked Account for the Expert (Payout Onboarding)
 // 3. Save Bank Details for Admin Manual Payout (Startup Hustle Plan)
@@ -323,23 +373,47 @@ exports.razorpayWebhook = async (req, res) => {
 exports.requestPayout = async (req, res, next) => {
   try {
     const expertId = req.user._id;
-
-    const expertProfile = await Profile.findOne({ user: expertId });
     
-    // We look for 'manual_payout_mode' since you are doing the Startup Hustle routing
-    if (!expertProfile || !expertProfile.isPayoutActive || !expertProfile.accountNumber) {
+    // 🚨 1. EXTRACT NEW INPUTS FROM THE APP
+    const { upiId, email, phoneNumber } = req.body;
+
+    if (!upiId || !email || !phoneNumber) {
       return res.status(400).json({ 
         success: false, 
-        error: 'You must link a bank account before requesting a payout.' 
+        error: 'UPI ID, Email, and Phone Number are required to process the payout.' 
       });
     }
 
-    // 🚨 THE FIX: Find ALL completed sessions that are 'paid' or 'payout_ready'
+    // 🚀 THE BULLETPROOF FIX: Check if they already have a payout processing!
+    const existingPayout = await Payout.findOne({
+      expert: expertId,
+      payoutType: 'earning', // 🚨 ADD THIS LINE
+      status: { $in: ['pending', 'processing'] }
+    });
+
+    if (existingPayout) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'You already have a withdrawal processing. Please wait for it to be completed before requesting another.' 
+      });
+    }
+
+    // 🚨 2. GATHER LIFETIME STATS (For the Immutable Receipt)
+    const totalRequestsReceived = await CallRequest.countDocuments({ recipient: expertId });
+    const totalRequestsSent = await CallRequest.countDocuments({ requester: expertId });
+    const totalCallsCompleted = await CallRequest.countDocuments({ recipient: expertId, status: 'completed' });
+    const totalCallsRejected = await CallRequest.countDocuments({ 
+      recipient: expertId, 
+      status: { $in: ['rejected', 'cancelled', 'expert_no_show'] } 
+    });
+
+    // 🚨 3. FIND ELIGIBLE SESSIONS
+    // Find completed sessions that haven't been withdrawn yet.
     const readySessions = await CallRequest.find({
       recipient: expertId,
       status: 'completed',
-      paymentStatus: { $in: ['paid', 'payout_ready'] } // Safely catches manual tests
-    });
+      paymentStatus: { $in: ['paid', 'payout_ready'] } 
+    }).populate('requester', 'name email'); // Populate so we can grab the user details!
 
     if (readySessions.length === 0) {
       return res.status(400).json({ 
@@ -348,32 +422,51 @@ exports.requestPayout = async (req, res, next) => {
       });
     }
 
-    // Calculate the Math
+    // 🚨 4. CALCULATE MATH & BUILD DETAILED ARRAY
     let grossAmount = 0;
     const includedSessionIds = [];
+    const detailedSessionsArray = [];
 
     readySessions.forEach(session => {
       grossAmount += session.amount;
       includedSessionIds.push(session._id);
+      
+      // Build the detailed receipt entry
+      detailedSessionsArray.push({
+        sessionId: session._id,
+        requesterId: session.requester ? session.requester._id : null,
+        topic: session.topic || 'General Session',
+        amountEarned: session.amount,
+        date: session.scheduledAt || session.createdAt
+      });
     });
 
-    const platformFee = grossAmount * 0.10; // 10% Cut
+    const platformFee = Math.round(grossAmount * 0.10); // 10% Cut
     const netPayable = grossAmount - platformFee;
 
-    // Create the Payout Document
+    // 🚨 5. CREATE THE IMMUTABLE PAYOUT RECEIPT
     const payoutRequest = await Payout.create({
       expert: expertId,
-      grossAmount,
-      platformFee,
-      netPayable,
-      bankDetailsSnapshot: {
-        accountNumber: expertProfile.accountNumber,
-        ifscCode: expertProfile.ifscCode
+      payoutType: 'earning',
+      upiId: upiId.trim(),
+      email: email.trim().toLowerCase(),
+      phoneNumber: phoneNumber.trim(),
+      financials: {
+        grossAmount,
+        platformFee,
+        netPayable
       },
-      includedSessions: includedSessionIds
+      stats: {
+        totalCallsCompleted,
+        totalCallsRejected,
+        totalRequestsReceived,
+        totalRequestsSent
+      },
+      includedSessions: detailedSessionsArray,
+      status: 'pending'
     });
 
-    // CRITICAL: Lock the sessions so they can't be withdrawn twice!
+    // 🚨 6. LOCK THE SESSIONS (So they can't withdraw them again)
     await CallRequest.updateMany(
       { _id: { $in: includedSessionIds } },
       { $set: { paymentStatus: 'payout_processing' } }
@@ -388,5 +481,94 @@ exports.requestPayout = async (req, res, next) => {
   } catch (error) {
     console.error("Payout Request Error:", error);
     res.status(500).json({ success: false, error: 'Failed to process payout request.' });
+  }
+};
+
+// ==========================================
+// 🚨 NEW: THE REFUND WALLET LOGIC
+// ==========================================
+
+// A. Get Refund Balance
+exports.getRefundStats = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    // Find sessions the user PAID for, but were cancelled/rejected or the expert no-showed
+    const refundableSessions = await CallRequest.find({
+      requester: userId,
+      paymentStatus: { $in: ['paid', 'failed'] }, // Money is in our Escrow
+      $or: [
+        { status: { $in: ['cancelled', 'rejected'] } },
+        { 'zoomMeeting.status': 'expert_no_show' }
+      ]
+    });
+
+    const refundableAmount = refundableSessions.reduce((sum, session) => sum + session.amount, 0);
+
+    res.status(200).json({
+      success: true,
+      data: { refundableAmount, cancelledCount: refundableSessions.length }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch refund stats' });
+  }
+};
+
+// B. Request Refund Payout
+exports.requestRefundPayout = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { upiId, email, phoneNumber } = req.body;
+
+    const existingRefund = await Payout.findOne({
+      expert: userId,
+      payoutType: 'refund',
+      status: { $in: ['pending', 'processing'] }
+    });
+
+    if (existingRefund) return res.status(400).json({ success: false, error: 'You already have a refund processing.' });
+
+    const readySessions = await CallRequest.find({
+      requester: userId,
+      paymentStatus: { $in: ['paid', 'failed'] },
+      $or: [{ status: { $in: ['cancelled', 'rejected'] } }, { 'zoomMeeting.status': 'expert_no_show' }]
+    }).populate('recipient', 'name email');
+
+    if (readySessions.length === 0) return res.status(400).json({ success: false, error: 'No refundable sessions found.' });
+
+    let grossAmount = 0;
+    const includedSessionIds = [];
+    const detailedSessionsArray = [];
+
+    readySessions.forEach(session => {
+      grossAmount += session.amount;
+      includedSessionIds.push(session._id);
+      detailedSessionsArray.push({
+        sessionId: session._id,
+        requesterId: session.recipient._id, // Save expert ID for reference
+        topic: 'Refund: ' + (session.topic || 'Cancelled Session'),
+        amountEarned: session.amount,
+        date: session.scheduledAt || session.createdAt
+      });
+    });
+
+    // 🚨 100% REFUND (No Platform Fee Taken!)
+    const payoutRequest = await Payout.create({
+      expert: userId,
+      payoutType: 'refund',
+      upiId: upiId.trim(),
+      email: email.trim().toLowerCase(),
+      phoneNumber: phoneNumber.trim(),
+      financials: { grossAmount, platformFee: 0, netPayable: grossAmount },
+      stats: { totalCallsCompleted: 0, totalCallsRejected: readySessions.length, totalRequestsReceived: 0, totalRequestsSent: 0 },
+      includedSessions: detailedSessionsArray,
+      status: 'pending'
+    });
+
+    await CallRequest.updateMany({ _id: { $in: includedSessionIds } }, { $set: { paymentStatus: 'refund_processing' } });
+
+    res.status(201).json({ success: true, message: `Refund of ₹${grossAmount} requested successfully.` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to process refund.' });
   }
 };

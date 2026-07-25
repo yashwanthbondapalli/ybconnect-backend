@@ -19,6 +19,7 @@ const zoomRoutes = require('./src/routes/zoomRoutes'); // Adjust path if necessa
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
 const reviewerRoutes = require('./src/modules/resume-reviewer/routes/reviewer.routes.js');
+const rateLimit = require('express-rate-limit');
 
 
 
@@ -32,9 +33,21 @@ app.use((req, res, next) => {
 });
 // Trust the first proxy in front of Express
 app.set('trust proxy', 1);
-require('./cronJobs');
+
 // Middleware
 app.use(helmet());
+
+// 🛡️ NEW: DDoS & Brute Force Shield
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Limit each IP to exactly 200 requests per 15 mins
+  message: { 
+    success: false, 
+    error: 'Too many requests from this IP, please try again later.' 
+  }
+});
+app.use('/api/', apiLimiter); // Applies to everything starting with /api/
 // 2. Mount it to your main API path
 app.use('/api/v1', dashboardRoutes);
 app.use(cors({

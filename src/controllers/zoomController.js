@@ -226,13 +226,29 @@ exports.zoomCallback = async (req, res) => {
           <p>Your Zoom account has been successfully linked to your profile. You are now ready to host live premium mentorship sessions.</p>
           
           <div class="badge-container">
-            <span class="badge-text" style="color: #A855F7;">YB Connect</span>
+            <span class="badge-text" style="color: #f6f3f9;">YB Connect</span>
             <span class="divider">✕</span>
             <span class="badge-text" style="color: #2D8CFF;">Zoom</span>
           </div>
 
-          <button class="close-btn" onclick="window.close()">Close Window</button>
+<button class="close-btn" id="closeBtn" onclick="attemptClose()">Close Window</button>
         </div>
+
+        <script>
+          function attemptClose() {
+            // 1. Try to close it (Works on desktop/some webviews)
+            window.close();
+            
+            // 2. If it's still open after 300ms, the browser blocked it. 
+            // Update the UI so the user knows what to do!
+            setTimeout(() => {
+              const btn = document.getElementById('closeBtn');
+              btn.innerText = "✓ Please close this tab and return to the app";
+              btn.style.backgroundColor = "#475569";
+              btn.style.boxShadow = "none";
+            }, 300);
+          }
+        </script>
       </body>
       </html>
     `);

@@ -1,17 +1,24 @@
 const CallRequest = require('../models/CallRequest');
 const User = require('../models/User');
-const { createZoomMeeting } = require('../utils/zoomHelper');
+// 🚨 ADD THIS LINE:
+const sendEmail = require('../utils/emailHelper');
 
 exports.createCallRequest = async (req, res, next) => {
   try {
-    const { recipientId, topic, message } = req.body;
+    // 🚀 NEW: Accept budgetMin and budgetMax from the student
+    const { recipientId, topic, message, budgetMin, budgetMax } = req.body;
+    
     if (req.user.id === recipientId) return res.status(400).json({ success: false, error: "Cannot request yourself." });
 
     const callRequest = await CallRequest.create({
       requester: req.user.id,
       recipient: recipientId,
       topic,
-      message
+      message,
+      budget: {
+        min: budgetMin,
+        max: budgetMax
+      }
     });
 
     res.status(201).json({ success: true, data: callRequest });
@@ -28,23 +35,19 @@ exports.getRequests = async (req, res, next) => {
       .populate('requester', 'name email')
       .populate('recipient', 'name email')
       .sort({ createdAt: -1 })
-      .lean(); // .lean() converts Mongoose documents to plain JS objects so we can edit them
+      .lean(); 
 
-    // 🚨 THE GATEKEEPER: Hide Zoom URLs from unpaid students
+    // THE GATEKEEPER: Hide Zoom URLs from unpaid students
     requests = requests.map(reqData => {
-      // If the person asking is the Student AND they haven't paid yet
       if (reqData.requester._id.toString() === req.user.id && reqData.paymentStatus !== 'paid') {
         if (reqData.zoomMeeting) {
           reqData.zoomMeeting.joinUrl = 'hidden_until_paid';
           reqData.zoomMeeting.startUrl = 'hidden';
         }
       }
-      
-      // Always hide the Expert's private startUrl from the Student, even if paid
       if (reqData.requester._id.toString() === req.user.id && reqData.zoomMeeting) {
          reqData.zoomMeeting.startUrl = 'hidden';
       }
-
       return reqData;
     });
 
@@ -56,62 +59,99 @@ exports.getRequests = async (req, res, next) => {
 
 exports.updateRequestStatus = async (req, res, next) => {
   try {
-    const { status, scheduledAt, amount, duration } = req.body; 
+    // 🚀 NEW: We now accept proposedSlots for the negotiation
+    const { status, scheduledAt, amount, proposedSlots } = req.body; 
     let callRequest = await CallRequest.findById(req.params.id);
 
     if (!callRequest) return res.status(404).json({ success: false, error: 'Request not found' });
     
-    // 🚨 1. SMART AUTH CHECK: Determine who is making the request
-    const isRecipient = callRequest.recipient.toString() === req.user.id; // The Expert
-    const isRequester = callRequest.requester.toString() === req.user.id; // The Student
+    const isRecipient = callRequest.recipient.toString() === req.user.id; // Expert
+    const isRequester = callRequest.requester.toString() === req.user.id; // Student
 
     if (!isRecipient && !isRequester) {
       return res.status(403).json({ success: false, error: 'Unauthorized' });
     }
 
-    // 🚨 2. STUDENT RULES: Students can ONLY cancel, and ONLY if they haven't paid
-    if (isRequester) {
-      if (status !== 'cancelled') {
-        return res.status(403).json({ success: false, error: 'Students can only cancel requests.' });
-      }
-      if (callRequest.paymentStatus === 'paid') {
-        return res.status(400).json({ success: false, error: 'Cannot cancel a session that is already paid. Please contact support.' });
-      }
-    }
-
-    // 3. Prevent modifying completely closed tickets
+    // Prevent modifying completely closed tickets
     if (['completed', 'rejected', 'cancelled'].includes(callRequest.status)) {
        return res.status(400).json({ success: false, error: `This request is already ${callRequest.status}.` });
     }
 
-    // 🚨 4. 10-MINUTE BUFFER CHECK (For Experts accepting sessions)
-    if (isRecipient && status === 'accepted' && scheduledAt) {
-      const scheduledTimeMs = new Date(scheduledAt).getTime();
-      const tenMinsFromNowMs = Date.now() + (10 * 60 * 1000);
-      
-      if (scheduledTimeMs < tenMinsFromNowMs) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Instant sessions must be scheduled at least 10 minutes in the future to allow payment processing.' 
-        });
+    // ==========================================
+    // 🚨 EXPERT LOGIC: Making an Offer
+    // ==========================================
+    if (isRecipient && status === 'offer_made') {
+      if (!amount || !proposedSlots || proposedSlots.length === 0) {
+        return res.status(400).json({ success: false, error: 'You must provide a price and at least one proposed time slot to make an offer.' });
+      }
+      callRequest.amount = amount;
+      callRequest.proposedSlots = proposedSlots;
+      callRequest.status = 'offer_made';
+    } 
+    // Expert can also reject directly
+    else if (isRecipient && status === 'rejected') {
+      callRequest.status = 'rejected';
+    }
+
+    // ==========================================
+    // 🚨 STUDENT LOGIC: Accepting the Offer & Paying
+    // ==========================================
+    if (isRequester) {
+      if (status === 'accepted') {
+        if (callRequest.status !== 'offer_made') {
+          return res.status(400).json({ success: false, error: 'You cannot accept a session that has not been offered yet.' });
+        }
+        if (!scheduledAt) {
+          return res.status(400).json({ success: false, error: 'You must select one of the proposed time slots to confirm the session.' });
+        }
+        
+        // 10-MINUTE BUFFER CHECK: Ensure the student isn't picking a slot that is already happening
+        const scheduledTimeMs = new Date(scheduledAt).getTime();
+        const tenMinsFromNowMs = Date.now() + (10 * 60 * 1000);
+        if (scheduledTimeMs < tenMinsFromNowMs) {
+          return res.status(400).json({ success: false, error: 'The selected time slot is too soon. Please select a time at least 10 minutes from now.' });
+        }
+
+        callRequest.scheduledAt = scheduledAt;
+        callRequest.status = 'accepted';
+      } 
+      // Student can cancel at any time before payment
+      else if (status === 'cancelled') {
+        if (callRequest.paymentStatus === 'paid') {
+          return res.status(400).json({ success: false, error: 'Cannot cancel a session that is already paid.' });
+        }
+        callRequest.status = 'cancelled';
+      } 
+      else {
+        return res.status(403).json({ success: false, error: 'Students can only accept offers or cancel requests.' });
       }
     }
 
-    // 5. Update basic fields (Accept the request, set time, set price)
-    callRequest.status = status;
-    if (scheduledAt) callRequest.scheduledAt = scheduledAt;
-    if (amount) callRequest.amount = amount;
-    
-    // 🚨 6. ZOOM LOGIC HAS BEEN DELETED FROM HERE! 
-    // It will now ONLY be triggered by your paymentController.js after a successful Razorpay payment.
-
-    // 7. Save everything to MongoDB
+// Save everything to MongoDB
     await callRequest.save();
     
-    // 8. Re-fetch to return to frontend
+    // Re-fetch to return to frontend
     callRequest = await CallRequest.findById(req.params.id)
       .populate('requester', 'name email')
       .populate('recipient', 'name email');
+
+    // 🚨 FIX: SEND THE EMAIL!
+    if (isRecipient && callRequest.status === 'offer_made') {
+      try {
+        const student = callRequest.requester;
+        const expert = callRequest.recipient;
+        const sendEmail = require('../utils/emailHelper'); 
+        
+        await sendEmail({
+          email: student.email,
+          subject: `🔔 Action Required: ${expert.name} sent you an offer!`,
+          message: `Hi ${student.name.split(' ')[0]},\n\nGood news! ${expert.name} has reviewed your mentorship request and made you an offer for ₹${callRequest.amount}.\n\nThey have proposed a few available time slots for the session. Please log in to the YB Connect app, go to your Appointments tab, and tap "Review & Book" to pick your preferred time and complete the payment.\n\nThank you,\nYour YB Connect Team`
+        });
+        console.log(`✅ Offer email successfully sent to ${student.email}`);
+      } catch (emailErr) {
+        console.error("⚠️ Failed to send offer email:", emailErr.message);
+      }
+    }
 
     res.status(200).json({ success: true, data: callRequest });
   } catch (error) { 

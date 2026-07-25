@@ -1,42 +1,53 @@
-// models/Payout.js
 const mongoose = require('mongoose');
 
 const PayoutSchema = new mongoose.Schema({
+  // 1. IDENTITY
   expert: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true 
   },
-  grossAmount: { 
-    type: Number, 
-    required: true 
+  // 🚨 NEW: Distinguish between earnings and refunds
+  payoutType: { type: String, enum: ['earning', 'refund'], default: 'earning' },
+  
+  // 2. DESTINATION (Provided by the user at the exact moment of withdrawal)
+  upiId: { type: String, required: true, trim: true },
+  email: { type: String, required: true, lowercase: true, trim: true },
+  phoneNumber: { type: String, required: true, trim: true },
+
+  // 3. THE MONEY
+  financials: {
+    grossAmount: { type: Number, required: true },
+    platformFee: { type: Number, required: true },
+    netPayable: { type: Number, required: true }
   },
-  platformFee: { 
-    type: Number, 
-    required: true 
+
+  // 4. LIFETIME STATS SNAPSHOT (At the time of this request)
+  stats: {
+    totalCallsCompleted: { type: Number, default: 0 },
+    totalCallsRejected: { type: Number, default: 0 }, // includes rejected, cancelled, no-shows
+    totalRequestsReceived: { type: Number, default: 0 },
+    totalRequestsSent: { type: Number, default: 0 } 
   },
-  netPayable: { 
-    type: Number, 
-    required: true 
-  },
+
+  // 5. DETAILED RECEIPTS (Instead of just blind IDs, we store exactly what the money was for)
+  includedSessions: [{
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'CallRequest' },
+    requesterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    topic: { type: String },
+    amountEarned: { type: Number },
+    date: { type: Date }
+  }],
+
+  // 6. LOGISTICS
   status: { 
     type: String, 
     enum: ['pending', 'processing', 'completed', 'failed'], 
     default: 'pending' 
   },
-  // We save a snapshot of the bank details at the time of the request
-  // so if they change it later, your historical records stay accurate.
-  bankDetailsSnapshot: {
-    accountNumber: { type: String, required: true },
-    ifscCode: { type: String, required: true }
-  },
-  // An array of the specific CallRequests this payout covers
-  includedSessions: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'CallRequest' 
-  }],
-  adminNotes: { type: String }, // For you to log transaction IDs on Fridays
+  adminNotes: { type: String }, // e.g., "PhonePe Txn: T238492834"
   paidAt: { type: Date }
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Payout', PayoutSchema);

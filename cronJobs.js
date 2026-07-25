@@ -29,14 +29,14 @@ cron.schedule('* * * * *', async () => {
       // 1. Mail to Student
       await sendEmail({
         email: session.requester.email,
-        subject: '🚨 Your BacktoBase Session starts in 5 minutes!',
+        subject: '🚨 Your YB Connect Session starts in 5 minutes!',
         message: `Hi ${session.requester.name},\n\nGet ready! Your session with ${session.recipient.name} starts in 5 minutes.\n\nJoin here: ${zoomLinkGuest}\n\nSee you there!`
       });
 
       // 2. Mail to Expert
       await sendEmail({
         email: session.recipient.email,
-        subject: '🚨 Your BacktoBase Session starts in 5 minutes!',
+        subject: '🚨 Your YB Connect Session starts in 5 minutes!',
         message: `Hi ${session.recipient.name},\n\nYour student ${session.requester.name} is waiting! Your session starts in 5 minutes.\n\nStart the meeting here: ${zoomLinkHost}\n\nHave a great session!`
       });
 
