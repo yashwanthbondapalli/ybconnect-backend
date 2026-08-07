@@ -1,6 +1,7 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const generateUniqueSlug = require('../utils/generateSlug');
+const Idea = require('../models/Idea');
 
 // @desc    Get current user's profile
 exports.getCurrentUserProfile = async (req, res, next) => {
@@ -103,12 +104,29 @@ exports.upsertProfile = async (req, res, next) => {
       };
     }
 
-    // 8. Save to MongoDB
+// 8. Save to MongoDB
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileFields },
       { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
     ).populate('user', 'name email slug phoneNumber');
+
+    // 🚨 THE FIX: Synchronize all past ideas with the updated profile details!
+    try {
+      await Idea.updateMany(
+        { authorId: req.user.id },
+        { 
+          $set: { 
+            authorName: profile.user.name, 
+            designation: profile.designation,
+            company: profile.companyName,
+            profileImage: profile.profileImage
+          } 
+        }
+      );
+    } catch (syncError) {
+      console.error("Failed to sync past ideas:", syncError);
+    }
 
     res.status(200).json({ success: true, data: profile });
 
@@ -272,7 +290,7 @@ exports.updateProfileImage = async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'No image URL provided' });
     }
 
-    const profile = await Profile.findOneAndUpdate(
+const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { 
         $set: { profileImage: profileImage },
@@ -285,6 +303,16 @@ exports.updateProfileImage = async (req, res, next) => {
         setDefaultsOnInsert: true 
       } 
     );
+
+    // 🚨 THE FIX: Synchronize all past ideas with the new profile picture!
+    try {
+      await Idea.updateMany(
+        { authorId: req.user.id },
+        { $set: { profileImage: profile.profileImage } }
+      );
+    } catch (syncError) {
+      console.error("Failed to sync past ideas:", syncError);
+    }
 
     res.status(200).json({ success: true, data: profile });
   } catch (error) {

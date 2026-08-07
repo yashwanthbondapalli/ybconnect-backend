@@ -1,37 +1,40 @@
 const cron = require('node-cron');
 const CallRequest = require('../models/CallRequest');
+const User = require('../models/User'); 
 const sendEmail = require('./emailHelper');
-
 const axios = require('axios'); // Required to ping Expo's push endpoint
 
+// --- HELPER FUNCTION: BROADCAST ENGAGEMENT NOTIFICATIONS ---
 // --- HELPER FUNCTION: BROADCAST ENGAGEMENT NOTIFICATIONS ---
 async function sendEngagementNotification(title, messagesArray) {
   try {
     // Pick a random crazy message from the array
     const randomMessage = messagesArray[Math.floor(Math.random() * messagesArray.length)];
     
-    // Fetch all users who have registered an Expo push token
-    const users = await User.find({ pushToken: { $exists: true, $ne: null } }).select('pushToken');
+    // 🚨 FIX: Target the exact field name found in your schema: 'expoPushToken'
+    const users = await User.find({
+      expoPushToken: { $exists: true, $ne: null, $ne: '' }
+    });
     
     if (!users || users.length === 0) {
-      console.log('⚠️ No users with push tokens found for engagement broadcast.');
+      console.log('⚠️ No users found with a valid "expoPushToken" in MongoDB yet.');
       return;
     }
 
-    console.log(`📢 Broadcasting engagement notification to ${users.length} users...`);
+    console.log(`📢 Broadcasting engagement notification to ${users.length} user(s)...`);
 
-    // Loop through users and send the push notification via Expo
     for (const user of users) {
-      if (user.pushToken && user.pushToken.startsWith('ExponentPushToken')) {
+      const activeToken = user.expoPushToken;
+
+      if (activeToken && typeof activeToken === 'string' && activeToken.startsWith('ExponentPushToken')) {
         await axios.post('https://exp.host/--/api/v2/push/send', {
-          to: user.pushToken,
+          to: activeToken,
           sound: 'default',
           title: title,
           body: randomMessage,
           data: { screen: 'Home' },
         }).catch(err => {
-          // Silently catch individual token errors so one bad token doesn't crash the loop
-          console.log(`Failed to push to token: ${user.pushToken}`);
+          console.log(`Failed to push to token: ${activeToken}`, err.message);
         });
       }
     }
@@ -75,7 +78,9 @@ cron.schedule('0 16 * * *', async () => {
   await sendEngagementNotification("YB Connect ⚡", afternoonMessages);
 });
 
-// 🌙 RUNS EXACTLY AT 12:00 AM (MIDNIGHT) EVERY DAY
+// ==========================================
+// 🌙 3. ABANDONED SESSION CLEANUP (12:00 AM Midnight Every Day)
+// ==========================================
 cron.schedule('0 0 * * *', async () => {
   try {
     const rightNow = new Date();
@@ -114,13 +119,26 @@ cron.schedule('0 0 * * *', async () => {
   }
 });
 
-// ... Keep your 5-minute reminder cron exactly as it is below this! ...
+// ==========================================
+// 🧪 4. TEMPORARY TEST CRON (Runs EVERY MINUTE for live testing)
+// ==========================================
+//cron.schedule('* * * * *', async () => {
+ // console.log('🧪 TEST CRON: Triggering test notification right now...');
+  
+  //const testMessages = [
+  //  "Test notification! If you see this, your push system is 100% working! 🚀",
+  //  "It's working! Your YB Connect push notifications are fully alive. 🔥"
+  //];
 
-// 🚨 RUNS EVERY 1 MINUTE TO CHECK FOR MEETINGS STARTING IN 5 MINS
+ // await sendEngagementNotification("YB Connect Test ⚡", testMessages);
+//});
+
+// ==========================================
+// 🚨 5. 5-MINUTE MEETING REMINDER CRON (Runs Every Minute)
+// ==========================================
 cron.schedule('* * * * *', async () => {
   try {
     const now = new Date();
-    // Look for sessions starting between 4 and 5 minutes from right now
     const inFiveMins = new Date(now.getTime() + 5 * 60000);
     const inFourMins = new Date(now.getTime() + 4 * 60000);
 
@@ -128,21 +146,18 @@ cron.schedule('* * * * *', async () => {
       status: 'accepted',
       paymentStatus: 'paid',
       scheduledAt: { $gt: inFourMins, $lte: inFiveMins },
-      reminderEmailSent: { $ne: true } // Prevents spamming them every minute!
+      reminderEmailSent: { $ne: true } 
     }).populate('requester', 'name email').populate('recipient', 'name email');
 
     for (const session of upcomingSessions) {
-      // Ensure the Zoom links actually exist before sending the email
       if (session.zoomMeeting && session.zoomMeeting.startUrl) {
         
-        // 1. Send Email to EXPERT (Host Link)
         await sendEmail({
           email: session.recipient.email,
           subject: '🚨 Session Starts in 5 Minutes!',
           message: `Hi ${session.recipient.name},\n\nYour student ${session.requester.name} is waiting! Your session starts in 5 minutes.\n\nStart the meeting here: ${session.zoomMeeting.startUrl}\n\nHave a great session!`
         });
 
-        // 2. Send Email to STUDENT (Join Link)
         await sendEmail({
           email: session.requester.email,
           subject: '🚨 Session Starts in 5 Minutes!',
@@ -151,7 +166,6 @@ cron.schedule('* * * * *', async () => {
 
         console.log(`✅ 5-Min Reminders sent for session ${session._id}`);
         
-        // Mark as sent so we don't send it again
         session.reminderEmailSent = true;
         await session.save();
       }
