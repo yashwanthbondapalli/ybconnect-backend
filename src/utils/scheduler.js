@@ -59,24 +59,50 @@ cron.schedule('0 9 * * *', async () => {
   ];
 
   await sendEngagementNotification("YB Connect ☀️", morningMessages);
+},
+  {
+  timezone: "Asia/Kolkata" // 🚨 THIS FIXES THE TIMEZONE
+});
+
+cron.schedule('0 12 * * *', async () => {
+  console.log('🌅 Running 9:00 AM Morning Engagement Push...');
+  
+  const morningMessages = [
+    "Rise and grind! 🚀 Got a burning career question? Connect with a mentor on YB Connect right now!",
+    "Good Afternoon, achiever! ☕ Your future self is begging you to learn something new today. Jump into YB Connect!",
+    "Afternoon! The coffee is brewing, and top tech mentors are online. Don't ghost your dreams today! 👀",
+    "Wake up! ⚡ Greatness doesn't wait around. See what mentors and student talents are up to today!",
+    "Warning: Staying in bed too long causes a lack of success. Fix it by booking a quick 1:1 session! 🎯"
+  ];
+
+  await sendEngagementNotification("YB Connect ☀️", morningMessages);
+},
+  {
+  timezone: "Asia/Kolkata" // 🚨 THIS FIXES THE TIMEZONE
 });
 
 // ==========================================
 // 🌇 2. AFTERNOON ENGAGEMENT CRON (Every day at 4:00 PM / 16:00)
 // ==========================================
-cron.schedule('0 16 * * *', async () => {
-  console.log('🌇 Running 4:00 PM Afternoon Engagement Push...');
+cron.schedule('0 15 * * *', async () => {
+  console.log('🌇 Running 3:00 PM Afternoon Engagement Push...');
   
   const afternoonMessages = [
     "Afternoon slump? Hit a roadblock in your code? 🛑 Unblock yourself instantly by talking to an expert!",
     "The day is halfway done! Have you built your network today? Tap in and see who's live right now! 🔥",
     "Quick reality check: You're one conversation away from a major breakthrough. Go check out YB Connect! 💡",
     "Mid-day motivation check! 🔋 Level up your portfolio before the sun goes down. Who's ready to chat?",
-    "Stop scrolling Instagram reels and go look at what awesome ideas people are posting on YB Connect! 🚀"
+    "Stop scrolling start learning and go look at what awesome ideas people are posting on YB Connect! 🚀"
   ];
 
   await sendEngagementNotification("YB Connect ⚡", afternoonMessages);
-});
+},
+
+{
+  timezone: "Asia/Kolkata" // 🚨 THIS FIXES THE TIMEZONE
+}
+
+);
 
 // ==========================================
 // 🌙 3. ABANDONED SESSION CLEANUP (12:00 AM Midnight Every Day)

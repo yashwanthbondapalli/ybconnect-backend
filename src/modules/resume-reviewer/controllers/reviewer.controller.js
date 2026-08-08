@@ -11,9 +11,18 @@ const expertRecommender = require('../services/expert.recommender');
 
 exports.analyzeResume = async (req, res, next) => {
     try {
+        // 🚨 ADD THIS SAFETY CHECK FIRST!
+        if (!req.files || !req.files.resume || !req.files.resume[0]) {
+            console.error("Multer did not find the 'resume' file in the request.");
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Resume file missing. Please check your upload.' 
+            });
+        }
+
         const resumeBuffer = req.files.resume[0].buffer;
         const mimetype = req.files.resume[0].mimetype;
-        const jdText = req.body.job_description; // Provided by user in form-data
+        const jdText = req.body.job_description;
 
         if (!resumeBuffer || !jdText) {
             return res.status(400).json({ success: false, error: 'Resume file and Job Description text are required.' });
