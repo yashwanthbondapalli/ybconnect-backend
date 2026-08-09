@@ -1,11 +1,15 @@
 const CallRequest = require('../models/CallRequest');
 const User = require('../models/User');
 // 🚨 ADD THIS LINE:
+const Profile = require('../models/Profile');
 const sendEmail = require('../utils/emailHelper');
+const sendPushNotification = require('../utils/pushHelper');
 
+// ==========================================
+// CASE 1: USER A REQUESTS EXPERT B
+// ==========================================
 exports.createCallRequest = async (req, res, next) => {
   try {
-    // 🚀 NEW: Accept budgetMin and budgetMax from the student
     const { recipientId, topic, message, budgetMin, budgetMax } = req.body;
     
     if (req.user.id === recipientId) return res.status(400).json({ success: false, error: "Cannot request yourself." });
@@ -15,11 +19,15 @@ exports.createCallRequest = async (req, res, next) => {
       recipient: recipientId,
       topic,
       message,
-      budget: {
-        min: budgetMin,
-        max: budgetMax
-      }
+      budget: { min: budgetMin, max: budgetMax }
     });
+
+    // 🚨 TRIGGER PUSH NOTIFICATION TO EXPERT
+    await sendPushNotification(
+      recipientId, 
+      "New Mentorship Request! 🚀", 
+      `Someone wants to book a session with you for ${topic}. Check your appointments!`
+    );
 
     res.status(201).json({ success: true, data: callRequest });
   } catch (error) { 
@@ -77,17 +85,24 @@ exports.updateRequestStatus = async (req, res, next) => {
        return res.status(400).json({ success: false, error: `This request is already ${callRequest.status}.` });
     }
 
-    // ==========================================
-    // 🚨 EXPERT LOGIC: Making an Offer
-    // ==========================================
     if (isRecipient && status === 'offer_made') {
       if (!amount || !proposedSlots || proposedSlots.length === 0) {
         return res.status(400).json({ success: false, error: 'You must provide a price and at least one proposed time slot to make an offer.' });
       }
+
+      // 🚨 FIX 1: Check if the Expert has actually connected their Zoom account!
+      const expertProfile = await Profile.findOne({ user: req.user.id });
+      if (!expertProfile || !expertProfile.zoomCredentials || !expertProfile.zoomCredentials.isConnected) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Action Required: You must connect your Zoom account in your Profile Settings before you can accept sessions.' 
+        });
+      }
+
       callRequest.amount = amount;
       callRequest.proposedSlots = proposedSlots;
       callRequest.status = 'offer_made';
-    } 
+    }
     // Expert can also reject directly
     else if (isRecipient && status === 'rejected') {
       callRequest.status = 'rejected';
@@ -136,20 +151,28 @@ exports.updateRequestStatus = async (req, res, next) => {
       .populate('recipient', 'name email');
 
     // 🚨 FIX: SEND THE EMAIL!
-    if (isRecipient && callRequest.status === 'offer_made') {
+// 🚨 FIX: SEND BOTH EMAIL AND PUSH NOTIFICATION!
+    if (callRequest.status === 'offer_made') {
       try {
         const student = callRequest.requester;
         const expert = callRequest.recipient;
-        const sendEmail = require('../utils/emailHelper'); 
         
+        // 1. Send Email (Your existing code)
         await sendEmail({
           email: student.email,
           subject: `🔔 Action Required: ${expert.name} sent you an offer!`,
           message: `Hi ${student.name.split(' ')[0]},\n\nGood news! ${expert.name} has reviewed your mentorship request and made you an offer for ₹${callRequest.amount}.\n\nThey have proposed a few available time slots for the session. Please log in to the YB Connect app, go to your Appointments tab, and tap "Review & Book" to pick your preferred time and complete the payment.\n\nThank you,\nYour YB Connect Team`
         });
-        console.log(`✅ Offer email successfully sent to ${student.email}`);
-      } catch (emailErr) {
-        console.error("⚠️ Failed to send offer email:", emailErr.message);
+        
+        // 2. 🚨 Send Push Notification to Student
+        await sendPushNotification(
+          student._id,
+          "Offer Received! 🔔",
+          `${expert.name} sent you an offer of ₹${callRequest.amount}. Tap to review and pick a time slot!`
+        );
+
+      } catch (err) {
+        console.error("⚠️ Failed to send offer notifications:", err.message);
       }
     }
 

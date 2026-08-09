@@ -6,6 +6,7 @@ const axios = require('axios');
 const zoomHelper = require('../utils/zoomHelper'); // 🚨 NEW: Import the Zoom generator
 const sendEmail = require('../utils/emailHelper');
 const Payout = require('../models/Payout'); // 🚨 NEW
+const sendPushNotification = require('../utils/pushHelper');
 // Initialize Razorpay with the keys you put in your .env file
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -210,7 +211,13 @@ if (expectedSignature === razorpay_signature) {
             email: populatedRequest.requester.email,
             subject: '🧾 Payment Receipt - Session Confirmed',
             message: studentMessage
-          })
+          }),
+     
+        sendPushNotification(
+            populatedRequest.recipient._id,
+            "💰 Payment Received! 🎉",
+            `${populatedRequest.requester.name} just paid ₹${populatedRequest.amount} for your session at ${formattedISTTime}.`
+          )
         ]);
 
         console.log('📧 Both Payment & Receipt emails sent successfully (Waiting for Brevo reminder)!');
