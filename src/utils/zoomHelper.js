@@ -1,5 +1,6 @@
 const axios = require('axios');
 const Profile = require('../models/Profile');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 /**
  * 1. THE TOKEN REFRESHER
@@ -12,7 +13,10 @@ const refreshZoomToken = async (expertProfile) => {
     // 🚨 FIX 1: Zoom strongly prefers URL-Encoded Body over Query Params for tokens!
     const params = new URLSearchParams();
     params.append('grant_type', 'refresh_token');
-    params.append('refresh_token', expertProfile.zoomCredentials.refreshToken);
+   params.append(
+  'refresh_token',
+  decrypt(expertProfile.zoomCredentials.refreshToken)
+);
 
     const response = await axios.post('https://zoom.us/oauth/token', params, {
       headers: {
@@ -24,21 +28,27 @@ const refreshZoomToken = async (expertProfile) => {
     const { access_token, refresh_token } = response.data;
     
     // 🚨 FIX 2: Fallback in case Zoom doesn't send a new refresh token (prevents wiping the DB)
-    const safeRefreshToken = refresh_token || expertProfile.zoomCredentials.refreshToken;
+const safeRefreshToken = refresh_token || decrypt(
+  expertProfile.zoomCredentials.refreshToken
+);
 
-    // Save the fresh tokens back to the database
-    expertProfile.zoomCredentials.accessToken = access_token;
-    expertProfile.zoomCredentials.refreshToken = safeRefreshToken;
-    
-    await Profile.updateOne(
-      { _id: expertProfile._id },
-      { 
-        $set: { 
-          'zoomCredentials.accessToken': access_token,
-          'zoomCredentials.refreshToken': safeRefreshToken
-        } 
-      }
-    );
+const encryptedAccessToken = encrypt(access_token);
+const encryptedRefreshToken = encrypt(safeRefreshToken);
+
+// Keep the in-memory object usable for the current request
+expertProfile.zoomCredentials.accessToken = encryptedAccessToken;
+expertProfile.zoomCredentials.refreshToken = encryptedRefreshToken;
+
+await Profile.updateOne(
+  { _id: expertProfile._id },
+  {
+    $set: {
+      'zoomCredentials.accessToken': encryptedAccessToken,
+      'zoomCredentials.refreshToken': encryptedRefreshToken
+    }
+  }
+);
+
 
     return access_token;
   } catch (error) {
@@ -68,7 +78,9 @@ exports.createZoomMeeting = async (expertUserId, topic, startTime, durationMinut
     throw new Error('Expert has not connected their Zoom account.');
   }
 
-  let currentToken = expertProfile.zoomCredentials.accessToken;
+let currentToken = decrypt(
+  expertProfile.zoomCredentials.accessToken
+);
 
   // A helper function so we don't write the Zoom request twice
   const executeZoomRequest = (token) => {

@@ -133,12 +133,29 @@ exports.verifyPayment = async (req, res, next) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, requestId } = req.body;
 
-    const callRequest = await CallRequest.findById(requestId);
-    if (!callRequest) {
-      return res.status(404).json({ success: false, error: 'Request not found' });
-    }
+const callRequest = await CallRequest.findById(requestId);
 
-    if (callRequest.razorpayOrderId !== razorpay_order_id) {
+if (!callRequest) {
+  return res.status(404).json({
+    success: false,
+    error: 'Request not found'
+  });
+}
+
+// SECURITY: Only the student/requester who created this
+// CallRequest is allowed to verify its payment.
+if (callRequest.requester.toString() !== req.user._id.toString()) {
+  console.error(
+    `🚨 UNAUTHORIZED PAYMENT VERIFICATION ATTEMPT: User ${req.user._id} tried to verify Request ${requestId}`
+  );
+
+  return res.status(403).json({
+    success: false,
+    error: 'You are not authorized to verify this payment.'
+  });
+}
+
+if (callRequest.razorpayOrderId !== razorpay_order_id) {
       console.error(`🚨 FRAUD ALERT: Order ID mismatch for Request ${requestId}`);
       return res.status(400).json({ success: false, error: 'Order ID mismatch. Payment verification failed.' });
     }

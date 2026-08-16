@@ -2,7 +2,9 @@ const axios = require('axios');
 const Profile = require('../models/Profile');
 const jwt = require('jsonwebtoken'); 
 const crypto = require('crypto');
+const { encrypt } = require('../utils/encryption');
 const CallRequest = require('../models/CallRequest');
+
 
 const REDIRECT_URI = process.env.ZOOM_REDIRECT_URI;
 
@@ -60,10 +62,10 @@ exports.zoomCallback = async (req, res) => {
       { user: verifiedUserId }, 
       { 
         $set: {
-          'zoomCredentials.accessToken': access_token,
-          'zoomCredentials.refreshToken': refresh_token,
-          'zoomCredentials.isConnected': true
-        }
+  'zoomCredentials.accessToken': encrypt(access_token),
+  'zoomCredentials.refreshToken': encrypt(refresh_token),
+  'zoomCredentials.isConnected': true
+}
       },
       { new: true, upsert: true } 
     );
