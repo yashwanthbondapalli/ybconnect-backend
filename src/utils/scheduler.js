@@ -128,16 +128,17 @@ cron.schedule('0 0 * * *', async () => {
       
       const expertShowedUp = session.zoomMeeting && session.zoomMeeting.expertJoinedAt;
 
-      if (expertShowedUp) {
+     if (expertShowedUp) {
         session.paymentStatus = 'payout_ready'; 
         session.zoomMeeting.status = 'student_no_show';
         await session.save();
         console.log(`✅ Expert Paid for session ${session._id}: Student No-Show.`);
       } else {
-        session.paymentStatus = 'refunded';
-        session.zoomMeeting.status = 'mutual_no_show';
+        // 🚨 FIX: Align with DB Schema and Frontend expectations
+        session.paymentStatus = 'failed'; 
+        session.zoomMeeting.status = 'expert_no_show';
         await session.save();
-        console.log(`🔄 Refund issued for session ${session._id}: Mutual No-Show.`);
+        console.log(`🔄 Refund issued for session ${session._id}: Expert No-Show.`);
       }
     }
   } catch (error) {

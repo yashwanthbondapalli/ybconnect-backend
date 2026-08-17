@@ -99,6 +99,49 @@ exports.updateRequestStatus = async (req, res, next) => {
         });
       }
 
+       if (
+    !Array.isArray(proposedSlots) ||
+    proposedSlots.length === 0 ||
+    proposedSlots.length > 3
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: 'Please provide between 1 and 3 proposed time slots.'
+    });
+  }
+
+  const now = Date.now();
+
+  const parsedSlots = proposedSlots.map(slot => new Date(slot));
+
+  // 4. Every slot must be a valid date
+  if (parsedSlots.some(date => Number.isNaN(date.getTime()))) {
+    return res.status(400).json({
+      success: false,
+      error: 'One or more proposed time slots are invalid.'
+    });
+  }
+
+  // 5. No past slots
+  if (parsedSlots.some(date => date.getTime() <= now)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Proposed time slots must be in the future.'
+    });
+  }
+
+  // 6. No duplicate slots
+  const uniqueSlotTimes = new Set(
+    parsedSlots.map(date => date.getTime())
+  );
+
+  if (uniqueSlotTimes.size !== parsedSlots.length) {
+    return res.status(400).json({
+      success: false,
+      error: 'Proposed time slots cannot contain duplicates.'
+    });
+  }
+
       callRequest.amount = amount;
       callRequest.proposedSlots = proposedSlots;
       callRequest.status = 'offer_made';
@@ -119,6 +162,19 @@ exports.updateRequestStatus = async (req, res, next) => {
         if (!scheduledAt) {
           return res.status(400).json({ success: false, error: 'You must select one of the proposed time slots to confirm the session.' });
         }
+
+        const selectedTime = new Date(scheduledAt).getTime();
+
+const isValidProposedSlot = callRequest.proposedSlots.some(
+  slot => new Date(slot).getTime() === selectedTime
+);
+
+if (!isValidProposedSlot) {
+  return res.status(400).json({
+    success: false,
+    error: 'Invalid time slot. Please select one of the time slots proposed by the expert.'
+  });
+}
         
         // 10-MINUTE BUFFER CHECK: Ensure the student isn't picking a slot that is already happening
         const scheduledTimeMs = new Date(scheduledAt).getTime();

@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const CallRequest = require('../models/CallRequest');
+const mongoose = require('mongoose');
 const Profile = require('../models/Profile'); 
 const axios = require('axios');
 const zoomHelper = require('../utils/zoomHelper'); // 🚨 NEW: Import the Zoom generator
@@ -395,116 +396,195 @@ exports.razorpayWebhook = async (req, res) => {
 
 // 6. Request Batch Payout (Expert clicks "Request Withdrawal")
 exports.requestPayout = async (req, res, next) => {
+  const session = await mongoose.startSession();
+
   try {
     const expertId = req.user._id;
-    
-    // 🚨 1. EXTRACT NEW INPUTS FROM THE APP
+
     const { upiId, email, phoneNumber } = req.body;
 
     if (!upiId || !email || !phoneNumber) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'UPI ID, Email, and Phone Number are required to process the payout.' 
+      return res.status(400).json({
+        success: false,
+        error: 'UPI ID, Email, and Phone Number are required to process the payout.'
       });
     }
 
-    // 🚀 THE BULLETPROOF FIX: Check if they already have a payout processing!
+    session.startTransaction();
+
+    // 1. Check for an existing active payout
     const existingPayout = await Payout.findOne({
       expert: expertId,
-      payoutType: 'earning', // 🚨 ADD THIS LINE
+      payoutType: 'earning',
       status: { $in: ['pending', 'processing'] }
-    });
+    }).session(session);
 
     if (existingPayout) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'You already have a withdrawal processing. Please wait for it to be completed before requesting another.' 
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        error: 'You already have a withdrawal processing. Please wait for it to be completed before requesting another.'
       });
     }
 
-    // 🚨 2. GATHER LIFETIME STATS (For the Immutable Receipt)
-    const totalRequestsReceived = await CallRequest.countDocuments({ recipient: expertId });
-    const totalRequestsSent = await CallRequest.countDocuments({ requester: expertId });
-    const totalCallsCompleted = await CallRequest.countDocuments({ recipient: expertId, status: 'completed' });
-    const totalCallsRejected = await CallRequest.countDocuments({ 
-      recipient: expertId, 
-      status: { $in: ['rejected', 'cancelled', 'expert_no_show'] } 
-    });
+    // 2. Gather lifetime statistics
+    const totalRequestsReceived = await CallRequest.countDocuments({
+      recipient: expertId
+    }).session(session);
 
-    // 🚨 3. FIND ELIGIBLE SESSIONS
-    // Find completed sessions that haven't been withdrawn yet.
+    const totalRequestsSent = await CallRequest.countDocuments({
+      requester: expertId
+    }).session(session);
+
+    const totalCallsCompleted = await CallRequest.countDocuments({
+      recipient: expertId,
+      status: 'completed'
+    }).session(session);
+
+    const totalCallsRejected = await CallRequest.countDocuments({
+      recipient: expertId,
+      status: {
+        $in: ['rejected', 'cancelled', 'expert_no_show']
+      }
+    }).session(session);
+
+    // 3. Find eligible sessions
     const readySessions = await CallRequest.find({
       recipient: expertId,
       status: 'completed',
-      paymentStatus: { $in: ['paid', 'payout_ready'] } 
-    }).populate('requester', 'name email'); // Populate so we can grab the user details!
+      paymentStatus: {
+        $in: ['paid', 'payout_ready']
+      }
+    })
+      .populate('requester', 'name email')
+      .session(session);
 
     if (readySessions.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No new funds available for withdrawal.' 
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        error: 'No new funds available for withdrawal.'
       });
     }
 
-    // 🚨 4. CALCULATE MATH & BUILD DETAILED ARRAY
+    // 4. Calculate payout
     let grossAmount = 0;
+
     const includedSessionIds = [];
     const detailedSessionsArray = [];
 
-    readySessions.forEach(session => {
-      grossAmount += session.amount;
-      includedSessionIds.push(session._id);
-      
-      // Build the detailed receipt entry
+    readySessions.forEach((call) => {
+      grossAmount += call.amount;
+
+      includedSessionIds.push(call._id);
+
       detailedSessionsArray.push({
-        sessionId: session._id,
-        requesterId: session.requester ? session.requester._id : null,
-        topic: session.topic || 'General Session',
-        amountEarned: session.amount,
-        date: session.scheduledAt || session.createdAt
+        sessionId: call._id,
+        requesterId: call.requester ? call.requester._id : null,
+        topic: call.topic || 'General Session',
+        amountEarned: call.amount,
+        date: call.scheduledAt || call.createdAt
       });
     });
 
-    const platformFee = Math.round(grossAmount * 0.10); // 10% Cut
+    const platformFee = Math.round(grossAmount * 0.10);
     const netPayable = grossAmount - platformFee;
 
-    // 🚨 5. CREATE THE IMMUTABLE PAYOUT RECEIPT
-    const payoutRequest = await Payout.create({
+    // 5. Create immutable payout receipt
+    const payoutRequest = new Payout({
       expert: expertId,
       payoutType: 'earning',
+
       upiId: upiId.trim(),
       email: email.trim().toLowerCase(),
       phoneNumber: phoneNumber.trim(),
+
       financials: {
         grossAmount,
         platformFee,
         netPayable
       },
+
       stats: {
         totalCallsCompleted,
         totalCallsRejected,
         totalRequestsReceived,
         totalRequestsSent
       },
+
       includedSessions: detailedSessionsArray,
+
       status: 'pending'
     });
 
-    // 🚨 6. LOCK THE SESSIONS (So they can't withdraw them again)
-    await CallRequest.updateMany(
-      { _id: { $in: includedSessionIds } },
-      { $set: { paymentStatus: 'payout_processing' } }
+    await payoutRequest.save({ session });
+
+    // 6. Lock the exact sessions inside the transaction
+    const lockResult = await CallRequest.updateMany(
+      {
+        _id: { $in: includedSessionIds },
+
+        // IMPORTANT:
+        // Only lock sessions that are STILL eligible.
+        paymentStatus: {
+          $in: ['paid', 'payout_ready']
+        }
+      },
+      {
+        $set: {
+          paymentStatus: 'payout_processing'
+        }
+      },
+      {
+        session
+      }
     );
 
-    res.status(201).json({
+    // 7. Safety check
+    if (lockResult.modifiedCount !== includedSessionIds.length) {
+      throw new Error(
+        'Payout session locking failed. Transaction will be rolled back.'
+      );
+    }
+
+    // 8. Everything succeeded
+    await session.commitTransaction();
+
+    return res.status(201).json({
       success: true,
       message: `Withdrawal of ₹${netPayable} requested successfully.`,
       data: payoutRequest
     });
 
   } catch (error) {
-    console.error("Payout Request Error:", error);
-    res.status(500).json({ success: false, error: 'Failed to process payout request.' });
+
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    // MongoDB duplicate-key protection
+    if (error.code === 11000) {
+      console.warn(
+        `⚠️ Duplicate payout request blocked for user ${req.user._id}`
+      );
+
+      return res.status(400).json({
+        success: false,
+        error: 'You already have a withdrawal processing. Please wait for it to be completed before requesting another.'
+      });
+    }
+
+    console.error('Payout Request Error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process payout request.'
+    });
+
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -540,59 +620,174 @@ exports.getRefundStats = async (req, res, next) => {
 
 // B. Request Refund Payout
 exports.requestRefundPayout = async (req, res, next) => {
+  const session = await mongoose.startSession();
+
   try {
     const userId = req.user._id;
     const { upiId, email, phoneNumber } = req.body;
 
+    if (!upiId || !email || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'UPI ID, Email, and Phone Number are required to process the refund.'
+      });
+    }
+
+    session.startTransaction();
+
+    // 1. Check for an existing active refund
     const existingRefund = await Payout.findOne({
       expert: userId,
       payoutType: 'refund',
       status: { $in: ['pending', 'processing'] }
-    });
+    }).session(session);
 
-    if (existingRefund) return res.status(400).json({ success: false, error: 'You already have a refund processing.' });
+    if (existingRefund) {
+      await session.abortTransaction();
 
+      return res.status(400).json({
+        success: false,
+        error: 'You already have a refund processing.'
+      });
+    }
+
+    // 2. Find refundable sessions
     const readySessions = await CallRequest.find({
       requester: userId,
       paymentStatus: { $in: ['paid', 'failed'] },
-      $or: [{ status: { $in: ['cancelled', 'rejected'] } }, { 'zoomMeeting.status': 'expert_no_show' }]
-    }).populate('recipient', 'name email');
+      $or: [
+        { status: { $in: ['cancelled', 'rejected'] } },
+        { 'zoomMeeting.status': 'expert_no_show' }
+      ]
+    })
+      .populate('recipient', 'name email')
+      .session(session);
 
-    if (readySessions.length === 0) return res.status(400).json({ success: false, error: 'No refundable sessions found.' });
+    if (readySessions.length === 0) {
+      await session.abortTransaction();
 
+      return res.status(400).json({
+        success: false,
+        error: 'No refundable sessions found.'
+      });
+    }
+
+    // 3. Calculate refund
     let grossAmount = 0;
+
     const includedSessionIds = [];
     const detailedSessionsArray = [];
 
-    readySessions.forEach(session => {
-      grossAmount += session.amount;
-      includedSessionIds.push(session._id);
+    readySessions.forEach((sessionItem) => {
+      grossAmount += sessionItem.amount;
+
+      includedSessionIds.push(sessionItem._id);
+
       detailedSessionsArray.push({
-        sessionId: session._id,
-        requesterId: session.recipient._id, // Save expert ID for reference
-        topic: 'Refund: ' + (session.topic || 'Cancelled Session'),
-        amountEarned: session.amount,
-        date: session.scheduledAt || session.createdAt
+        sessionId: sessionItem._id,
+        requesterId: sessionItem.recipient
+          ? sessionItem.recipient._id
+          : null,
+        topic: 'Refund: ' + (sessionItem.topic || 'Cancelled Session'),
+        amountEarned: sessionItem.amount,
+        date: sessionItem.scheduledAt || sessionItem.createdAt
       });
     });
 
-    // 🚨 100% REFUND (No Platform Fee Taken!)
-    const payoutRequest = await Payout.create({
+    // 100% refund
+    const payoutRequest = new Payout({
       expert: userId,
       payoutType: 'refund',
+
       upiId: upiId.trim(),
       email: email.trim().toLowerCase(),
       phoneNumber: phoneNumber.trim(),
-      financials: { grossAmount, platformFee: 0, netPayable: grossAmount },
-      stats: { totalCallsCompleted: 0, totalCallsRejected: readySessions.length, totalRequestsReceived: 0, totalRequestsSent: 0 },
+
+      financials: {
+        grossAmount,
+        platformFee: 0,
+        netPayable: grossAmount
+      },
+
+      stats: {
+        totalCallsCompleted: 0,
+        totalCallsRejected: readySessions.length,
+        totalRequestsReceived: 0,
+        totalRequestsSent: 0
+      },
+
       includedSessions: detailedSessionsArray,
+
       status: 'pending'
     });
 
-    await CallRequest.updateMany({ _id: { $in: includedSessionIds } }, { $set: { paymentStatus: 'refund_processing' } });
+    // 4. Create refund inside transaction
+    await payoutRequest.save({ session });
 
-    res.status(201).json({ success: true, message: `Refund of ₹${grossAmount} requested successfully.` });
+    // 5. Lock the exact sessions
+    const lockResult = await CallRequest.updateMany(
+      {
+        _id: { $in: includedSessionIds },
+
+        // Only claim sessions that are still refundable
+        paymentStatus: { $in: ['paid', 'failed'] },
+
+        $or: [
+          { status: { $in: ['cancelled', 'rejected'] } },
+          { 'zoomMeeting.status': 'expert_no_show' }
+        ]
+      },
+      {
+        $set: {
+          paymentStatus: 'refund_processing'
+        }
+      },
+      {
+        session
+      }
+    );
+
+    // 6. Safety check
+    if (lockResult.modifiedCount !== includedSessionIds.length) {
+      throw new Error(
+        'Refund session locking failed. Transaction will be rolled back.'
+      );
+    }
+
+    // 7. Commit everything
+    await session.commitTransaction();
+
+    return res.status(201).json({
+      success: true,
+      message: `Refund of ₹${grossAmount} requested successfully.`
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: 'Failed to process refund.' });
+
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    // MongoDB duplicate-key protection
+    if (error.code === 11000) {
+      console.warn(
+        `⚠️ Duplicate refund request blocked for user ${req.user._id}`
+      );
+
+      return res.status(400).json({
+        success: false,
+        error: 'You already have a refund processing.'
+      });
+    }
+
+    console.error('Refund Request Error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process refund.'
+    });
+
+  } finally {
+    await session.endSession();
   }
 };

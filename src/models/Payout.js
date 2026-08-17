@@ -50,4 +50,16 @@ const PayoutSchema = new mongoose.Schema({
   
 }, { timestamps: true });
 
+// Prevent multiple active payout/refund requests
+// for the same user and payout type.
+PayoutSchema.index(
+  { expert: 1, payoutType: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ['pending', 'processing'] }
+    }
+  }
+);
+
 module.exports = mongoose.model('Payout', PayoutSchema);
