@@ -105,12 +105,12 @@ cron.schedule('0 15 * * *', async () => {
 );
 
 // ==========================================
-// 🌙 3. ABANDONED SESSION CLEANUP (12:00 AM Midnight Every Day)
+// 🌙 3. ABANDONED SESSION CLEANUP (12:30 AM IST)
 // ==========================================
-cron.schedule('0 0 * * *', async () => {
+cron.schedule('30 0 * * *', async () => {
   try {
     const rightNow = new Date();
-    console.log('🌙 12:00 AM CRON: Running Abandoned Session Cleanup...');
+    console.log('🌙 12:30 AM CRON: Running Abandoned Session Cleanup...');
 
     const abandonedSessions = await CallRequest.find({
       status: 'accepted',
@@ -119,7 +119,7 @@ cron.schedule('0 0 * * *', async () => {
     }).populate('requester', 'name email').populate('recipient', 'name email');
 
     if (abandonedSessions.length === 0) {
-      console.log('✅ No abandoned sessions found at 12:00 AM.');
+      console.log('✅ No abandoned sessions found at 12:30 AM.');
       return;
     }
 
@@ -128,13 +128,12 @@ cron.schedule('0 0 * * *', async () => {
       
       const expertShowedUp = session.zoomMeeting && session.zoomMeeting.expertJoinedAt;
 
-     if (expertShowedUp) {
+      if (expertShowedUp) {
         session.paymentStatus = 'payout_ready'; 
         session.zoomMeeting.status = 'student_no_show';
         await session.save();
         console.log(`✅ Expert Paid for session ${session._id}: Student No-Show.`);
       } else {
-        // 🚨 FIX: Align with DB Schema and Frontend expectations
         session.paymentStatus = 'failed'; 
         session.zoomMeeting.status = 'expert_no_show';
         await session.save();
@@ -144,6 +143,8 @@ cron.schedule('0 0 * * *', async () => {
   } catch (error) {
     console.error('❌ Error in abandoned session cron:', error);
   }
+}, {
+  timezone: "Asia/Kolkata" // 🚨 THIS FORCES IT TO RUN AT 12:30 AM IST
 });
 
 // ==========================================
