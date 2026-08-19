@@ -20,7 +20,7 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
 const reviewerRoutes = require('./src/modules/resume-reviewer/routes/reviewer.routes.js');
 const rateLimit = require('express-rate-limit');
-
+const configRoutes = require('./src/routes/configRoutes.js');
 
 
 const app = express();
@@ -80,6 +80,8 @@ app.use('/api/v1/auth', authRoutes);
 // Add to your existing routes in server.js
 const profileRoutes = require('./src/routes/profileRoutes');
 app.use('/api/v1/profile', profileRoutes);
+
+app.use('/api/v1/config', configRoutes);
 
 const ideaRoutes = require('./src/routes/ideaRoutes.js')
 app.use('/api/v1/ideas', ideaRoutes);
