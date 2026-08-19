@@ -6,7 +6,7 @@ const router = express.Router();
 router.get('/version', (req, res) => {
   res.status(200).json({
     success: true,
-    latestVersion: "1.0.8", // 🚨 Change this number whenever you upload a new .aab to the Play Store
+    latestVersion: "1.0.7", // 🚨 Change this number whenever you upload a new .aab to the Play Store
     forceUpdate: false      // Keep this as an option for the future
   });
 });
