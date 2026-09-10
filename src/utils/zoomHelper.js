@@ -82,14 +82,21 @@ let currentToken = decrypt(
   expertProfile.zoomCredentials.accessToken
 );
 
+// 🚨 1. Convert MongoDB's UTC time into a strict local IST string for Zoom
+  // We wrap startTime in new Date() just in case it was passed as a string
+  const istDate = new Date(new Date(startTime).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const pad = (n) => n.toString().padStart(2, '0');
+  const localZoomTime = `${istDate.getFullYear()}-${pad(istDate.getMonth() + 1)}-${pad(istDate.getDate())}T${pad(istDate.getHours())}:${pad(istDate.getMinutes())}:00`;
+
   // A helper function so we don't write the Zoom request twice
   const executeZoomRequest = (token) => {
     return axios.post(
       'https://api.zoom.us/v2/users/me/meetings',
       {
-        topic: topic || 'BacktoBase Consultation',
+        topic: topic || 'YB Connect Consultation',
         type: 2, 
-        start_time: startTime, 
+        start_time: localZoomTime, // 🚨 2. Use our clean, 'Z'-free local time string
+        timezone: "Asia/Kolkata",  // 🚨 3. STRICTLY force Zoom to render this in IST
         duration: durationMinutes,
         settings: {
           host_video: true,

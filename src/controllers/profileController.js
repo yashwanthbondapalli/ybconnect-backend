@@ -32,10 +32,10 @@ exports.upsertProfile = async (req, res, next) => {
     // 1. Extract ALL fields (Expert & Student) from the request body
     const {
       role, yearOfStudy, university, major, minor, studentLookingFor, 
-      techInterests, techSkills, softSkills, studentProjects, internships, certifications, leadership, interests, // 🚀 NEW STUDENT FIELDS
+      techInterests, techSkills, softSkills, studentProjects, internships, certifications, leadership, interests, 
       name, phoneNumber, designation, companyName, 
       shortDescription, whyBookMe, category, city, bio, 
-      skills, industries, experience, servicesOffered, portfolio, availability,
+      skills, industries, experience, servicesOffered, portfolio, availability,scheduleRules,
       yearsOfExperience, languages, achievements, hourlyRate, 
       profileImage, socialLinks,
     } = req.body;
@@ -77,6 +77,8 @@ exports.upsertProfile = async (req, res, next) => {
     if (phoneNumber && phoneNumber.trim() !== '') profileFields.phoneNumber = phoneNumber;
     if (availability) profileFields.availability = availability;
 
+    if (scheduleRules) profileFields.scheduleRules = scheduleRules;
+
 
 
     // 5. Handle Arrays (Comma separated strings from frontend)
@@ -99,8 +101,8 @@ exports.upsertProfile = async (req, res, next) => {
         instagram: socialLinks.instagram || '',
         xUrl: socialLinks.xUrl || '',
         website: socialLinks.website || '',
-        github: socialLinks.github || '',     // 🚀 ADDED
-        leetcode: socialLinks.leetcode || ''  // 🚀 ADDED
+        github: socialLinks.github || '',     
+        leetcode: socialLinks.leetcode || ''  
       };
     }
 
@@ -140,9 +142,9 @@ exports.upsertProfile = async (req, res, next) => {
 exports.getProfileByUserId = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.params.userId })
-      // 🚨 SECURITY FIX: Exclude sensitive financial data from public view
+   
       
-      // 🚨 SECURITY FIX: Only grab public info from the User model (no email/phone)
+     
       .populate('user', 'name slug'); 
 
     if (!profile) {
@@ -167,9 +169,9 @@ exports.getProfileBySlug = async (req, res) => {
     }
 
     const profile = await Profile.findOne({ user: user._id })
-      // 🚨 SECURITY FIX: Exclude UPI ID
+     
       
-      // 🚨 SECURITY FIX: Do not leak email or phone number to the public!
+      
       .populate('user', 'name slug'); 
 
     if (!profile) {
@@ -253,7 +255,7 @@ exports.toggleLiveStatus = async (req, res, next) => {
 // @access  Public or Protected
 exports.getStudentTalent = async (req, res, next) => {
   try {
-    const { intent } = req.query; // Gets the filter from the frontend (e.g., ?intent=Internships)
+    const { intent } = req.query; 
     
     // Base query: Only find students
     let query = { role: 'student' };
@@ -266,7 +268,7 @@ exports.getStudentTalent = async (req, res, next) => {
 
     const students = await Profile.find(query)
       .populate('user', 'name slug')
-      .sort({ createdAt: -1 }); // Newest students first
+      .sort({ createdAt: -1 }); 
 
     res.status(200).json({ 
       success: true, 
@@ -318,5 +320,97 @@ const profile = await Profile.findOneAndUpdate(
   } catch (error) {
     console.error("Image Auto-Save Error:", error);
     res.status(500).json({ success: false, error: 'Failed to auto-save image' });
+  }
+
+
+
+
+};
+
+
+
+// ==========================================
+// 🚀 NEW: INSTANT BOOKING SLOT GENERATOR
+// ==========================================
+exports.getExpertSlots = async (req, res, next) => {
+  try {
+    const { id: expertId } = req.params;
+    
+    // 1. Fetch Expert Profile
+    const profile = await Profile.findOne({ user: expertId });
+    if (!profile || !profile.scheduleRules || !profile.scheduleRules.days) {
+      // If the expert hasn't set up the new calendar yet, return empty array
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const { sessionDuration, bufferDuration, noticePeriodHours, days, blackoutDates } = profile.scheduleRules;
+    
+    const now = new Date();
+    // Enforce Notice Period (e.g., can't book less than 4 hours from now)
+    const minimumBookableTime = new Date(now.getTime() + (noticePeriodHours * 60 * 60 * 1000));
+    
+    // Horizon: Look 14 days into the future
+    const horizon = new Date();
+    horizon.setDate(now.getDate() + 14);
+
+    // 2. Fetch all of the Expert's existing bookings & temporary holds
+    const CallRequest = require('../models/CallRequest'); 
+    const existingRequests = await CallRequest.find({
+      recipient: expertId,
+      status: { $in: ['holding', 'accepted', 'completed'] },
+      scheduledAt: { $gte: now, $lte: horizon }
+    }).select('scheduledAt');
+
+    // Convert existing booked times to raw milliseconds for super fast checking
+    const bookedTimeMs = existingRequests.map(req => new Date(req.scheduledAt).getTime());
+
+    let availableSlots = [];
+    const totalSlotTimeMs = (sessionDuration + bufferDuration) * 60 * 1000; 
+
+    // 3. The Math: Generate slots for the next 14 days
+    for (let d = 0; d < 14; d++) {
+      let checkDate = new Date(now);
+      checkDate.setDate(now.getDate() + d);
+      const dayOfWeek = checkDate.getDay(); // 0 = Sun, 1 = Mon
+
+      // See if the expert works on this specific day of the week
+      const workingDay = days.find(day => day.dayOfWeek === dayOfWeek);
+      if (!workingDay) continue; 
+
+      // Generate slots for each time window they set (e.g., 10:00 to 18:00)
+      workingDay.timeWindows.forEach(window => {
+        const [startHour, startMin] = window.start.split(':').map(Number);
+        const [endHour, endMin] = window.end.split(':').map(Number);
+
+        // Build exact Date objects for the start and end of this window
+        let slotStartTime = new Date(checkDate);
+        slotStartTime.setHours(startHour, startMin, 0, 0);
+
+        let windowEndTime = new Date(checkDate);
+        windowEndTime.setHours(endHour, endMin, 0, 0);
+
+        // Slice the window into 30-min + 15-min buffer chunks
+        while (slotStartTime.getTime() + (sessionDuration * 60 * 1000) <= windowEndTime.getTime()) {
+          const slotMs = slotStartTime.getTime();
+
+          // 🚨 3 Critical Checks to validate the slot:
+          const isPastNoticePeriod = slotMs >= minimumBookableTime.getTime();
+          const isNotBooked = !bookedTimeMs.includes(slotMs);
+          // (Optional: add blackoutDates check here if you use them)
+
+          if (isPastNoticePeriod && isNotBooked) {
+            availableSlots.push(new Date(slotStartTime)); 
+          }
+
+          // Move forward to the next slot (e.g., jump 45 minutes)
+          slotStartTime = new Date(slotMs + totalSlotTimeMs);
+        }
+      });
+    }
+
+    res.status(200).json({ success: true, data: availableSlots });
+  } catch (error) {
+    console.error("Slot Generation Error:", error);
+    res.status(500).json({ success: false, error: 'Failed to calculate available slots.' });
   }
 };

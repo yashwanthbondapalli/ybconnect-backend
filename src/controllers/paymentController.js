@@ -172,6 +172,10 @@ if (expectedSignature === razorpay_signature) {
       callRequest.paymentStatus = 'paid';
       callRequest.razorpayPaymentId = razorpay_payment_id;
 
+      // 🚨 FIX: DISARM THE BOMB & UPDATE STATUS!
+      callRequest.status = 'accepted'; // Move out of 'holding'
+      callRequest.expiresAt = undefined; // Stop MongoDB from deleting it!
+
       // 🚨 NEW: THE AUTO-REFUND SAFETY NET
       // Since we use Pre-Flight Allocation, the link should ALREADY be here.
       // If it is somehow missing, we instantly push the money to the Refund Wallet!
@@ -372,6 +376,10 @@ exports.razorpayWebhook = async (req, res) => {
           
           callRequest.paymentStatus = 'paid';
           callRequest.razorpayPaymentId = paymentId;
+
+          // 🚨 FIX: DISARM THE BOMB IN THE WEBHOOK TOO!
+          callRequest.status = 'accepted'; 
+          callRequest.expiresAt = undefined;
           await callRequest.save();
 
           // Optional: You can copy-paste your sendEmail logic here too 

@@ -66,12 +66,27 @@ const ProfileSchema = new mongoose.Schema({
 
   yearsOfExperience: { type: Number, default: 0 }, 
   
-  // -- AVAILABILITY WIDGET (SHARED LOGISTICS) --
+// -- AVAILABILITY WIDGET (SHARED LOGISTICS - OLD TEXT UI) --
   availability: {
     workingDays: { type: String, default: 'Mon - Fri' },
     workingHours: { type: String, default: '10:00 AM - 6:00 PM' },
     timezone: { type: String, default: '(GMT +05:30) IST' },
     avgResponseTime: { type: String, default: 'Usually replies in 24 hours' }
+  },
+
+  // 🚀 NEW: PROGRAMMABLE CALENDLY ENGINE RULES
+  scheduleRules: {
+    sessionDuration: { type: Number, default: 30 }, // Minutes per call
+    bufferDuration: { type: Number, default: 15 },  // Break between calls
+    noticePeriodHours: { type: Number, default: 4 }, // Min hours before booking
+    days: [{
+      dayOfWeek: { type: Number, min: 0, max: 6 }, // 0 = Sunday, 1 = Monday, etc.
+      timeWindows: [{
+        start: { type: String }, // e.g., "10:00" (24-hour military time)
+        end: { type: String }    // e.g., "18:00"
+      }]
+    }],
+    blackoutDates: [{ type: Date }] // Vacations or days off
   },
 
   // -- MISC DETAILS & LINKS --

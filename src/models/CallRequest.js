@@ -7,15 +7,19 @@ const CallRequestSchema = new mongoose.Schema({
   message: { type: String, maxLength: 500 },
   
   // 🚀 NEW: Negotiation Fields
+// 🚀 NEW: Negotiation Fields (OLD MODEL)
   budget: {
     min: { type: Number },
     max: { type: Number }
   },
-  proposedSlots: [{ type: Date }], // The 1-3 times the expert offers
+  proposedSlots: [{ type: Date }], 
   
-  // 🚨 UPDATED: Added 'offer_made' to the enum
-status: { type: String, enum: ['pending', 'offer_made', 'accepted', 'rejected', 'completed', 'cancelled'], default: 'pending' },
-  scheduledAt: { type: Date }, // Set by the student when they accept the offer
+  // 🚀 NEW: INSTANT BOOKING LOCK TIMER
+  expiresAt: { type: Date }, // If the student abandons checkout, Mongo auto-deletes this!
+
+  // 🚨 UPDATED: Added 'holding' to the enum for the 10-minute checkout lock
+  status: { type: String, enum: ['holding', 'pending', 'offer_made', 'accepted', 'rejected', 'completed', 'cancelled'], default: 'holding' },
+  scheduledAt: { type: Date },
   amount: { type: Number }, // Set by the expert when they make the offer
   reminderEmailSent: { type: Boolean, default: false },
 
@@ -51,5 +55,17 @@ paymentStatus: {
 CallRequestSchema.index({ requester: 1 });
 CallRequestSchema.index({ recipient: 1 });
 CallRequestSchema.index({ requester: 1, recipient: 1 });
+
+// 🚀 NEW: The Self-Destruct Index! 
+// MongoDB will automatically delete any document where the current time passes the 'expiresAt' time.
+CallRequestSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+CallRequestSchema.index(
+  { recipient: 1, scheduledAt: 1 },
+  { 
+    unique: true, 
+    partialFilterExpression: { status: { $in: ['holding', 'accepted'] } } 
+  }
+);
 
 module.exports = mongoose.model('CallRequest', CallRequestSchema);

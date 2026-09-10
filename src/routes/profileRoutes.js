@@ -8,7 +8,8 @@ const {
   toggleLiveStatus,
   getProfileByAnyId,
   getStudentTalent,
-  updateProfileImage
+  updateProfileImage,
+  getExpertSlots
 } = require('../controllers/profileController');
 const { protect } = require('../middlewares/authMiddleware');
 
@@ -25,7 +26,8 @@ router.put('/live-status', protect, toggleLiveStatus);
 router.patch('/image', protect, updateProfileImage);
 
 // Add this line BEFORE any routes that use /:id or /:slug so it doesn't get confused!
-
+// Get available time slots for a specific expert
+router.get('/user/:id/slots', protect, getExpertSlots);
 // Fetch anyone's profile by their User ID
 router.route('/user/:userId')
   .get(protect, getProfileByUserId);

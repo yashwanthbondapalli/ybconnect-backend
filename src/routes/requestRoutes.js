@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCallRequest, getRequests, updateRequestStatus } = require('../controllers/requestController');
+const { createCallRequest, getRequests, updateRequestStatus,createInstantHold } = require('../controllers/requestController');
 const { protect } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -12,5 +12,8 @@ router.route('/')
 
 router.route('/:id/status')
   .put(updateRequestStatus);
+
+  // Instant Booking Temporary Hold
+router.post('/instant-hold', protect, createInstantHold);
 
 module.exports = router;

@@ -237,3 +237,57 @@ if (!isValidProposedSlot) {
     next(error); 
   }
 };
+
+// ==========================================
+// 🚀 NEW: INSTANT BOOKING CART LOCK
+// ==========================================
+exports.createInstantHold = async (req, res, next) => {
+  try {
+    const { recipientId, topic, message, scheduledAt } = req.body;
+
+    if (req.user.id === recipientId) {
+      return res.status(400).json({ success: false, error: "Cannot request yourself." });
+    }
+
+    // 1. Fetch Expert's Profile to get their strict hourly rate
+    const expertProfile = await Profile.findOne({ user: recipientId });
+    if (!expertProfile) {
+      return res.status(404).json({ success: false, error: 'Expert not found.' });
+    }
+    if (!expertProfile.zoomCredentials || !expertProfile.zoomCredentials.isConnected) {
+      return res.status(400).json({ success: false, error: 'This expert has not connected their Zoom account yet.' });
+    }
+
+    const amount = expertProfile.hourlyRate; // Lock in the price!
+
+    // 2. 🚨 DOUBLE-BOOKING PROTECTION
+    const slotTime = new Date(scheduledAt);
+    const overlappingRequest = await CallRequest.findOne({
+      recipient: recipientId,
+      scheduledAt: slotTime,
+      status: { $in: ['holding', 'accepted'] }
+    });
+
+    if (overlappingRequest) {
+      return res.status(409).json({ success: false, error: 'Someone else just reserved this exact slot! Please pick another time.' });
+    }
+
+    // 3. CREATE THE 10-MINUTE LOCK
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // Self-destructs in 10 mins if unpaid
+
+    const callRequest = await CallRequest.create({
+      requester: req.user.id,
+      recipient: recipientId,
+      topic,
+      message,
+      amount: amount, 
+      scheduledAt: slotTime,
+      status: 'holding',     // Marks it as a temporary cart hold
+      expiresAt: expiresAt   // The ticking timer
+    });
+
+    res.status(201).json({ success: true, data: callRequest });
+  } catch (error) {
+    next(error);
+  }
+};
