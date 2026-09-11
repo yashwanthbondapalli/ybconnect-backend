@@ -346,8 +346,8 @@ exports.getExpertSlots = async (req, res, next) => {
     const { sessionDuration, bufferDuration, noticePeriodHours, days, blackoutDates } = profile.scheduleRules;
     
     const now = new Date();
-    // Enforce Notice Period (e.g., can't book less than 4 hours from now)
-    const minimumBookableTime = new Date(now.getTime() + (noticePeriodHours * 60 * 60 * 1000));
+// 🚨 10-MINUTE SAFETY BUFFER: Students cannot book a slot that starts in less than 10 minutes
+    const minimumBookableTime = new Date(now.getTime() + (10 * 60 * 1000));
     
     // Horizon: Look 14 days into the future
     const horizon = new Date();
@@ -408,7 +408,12 @@ exports.getExpertSlots = async (req, res, next) => {
       });
     }
 
-    res.status(200).json({ success: true, data: availableSlots });
+// 🚨 THE DUPLICATE SLAYER: If the expert accidentally created overlapping time blocks,
+    // this instantly removes any duplicate 30-minute slots!
+    const uniqueSlotsMs = [...new Set(availableSlots.map(date => date.getTime()))];
+    const finalCleanSlots = uniqueSlotsMs.map(ms => new Date(ms)).sort((a, b) => a - b);
+
+    res.status(200).json({ success: true, data: finalCleanSlots });
   } catch (error) {
     console.error("Slot Generation Error:", error);
     res.status(500).json({ success: false, error: 'Failed to calculate available slots.' });
