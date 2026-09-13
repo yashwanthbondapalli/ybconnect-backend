@@ -123,10 +123,15 @@ cron.schedule('30 0 * * *', async () => {
       return;
     }
 
-    for (const session of abandonedSessions) {
+for (const session of abandonedSessions) {
       session.status = 'completed';
       
-      const expertShowedUp = session.zoomMeeting && session.zoomMeeting.expertJoinedAt;
+      // 🚨 THE FIX: The expert ONLY counts as showing up if they have a timestamp 
+      // AND the Zoom room is not currently locked in an 'Early Bird' waiting state.
+      const expertShowedUp = 
+        session.zoomMeeting && 
+        session.zoomMeeting.expertJoinedAt && 
+        session.zoomMeeting.status !== 'waiting';
 
       if (expertShowedUp) {
         session.paymentStatus = 'payout_ready'; 
@@ -144,8 +149,16 @@ cron.schedule('30 0 * * *', async () => {
     console.error('❌ Error in abandoned session cron:', error);
   }
 }, {
-  timezone: "Asia/Kolkata" // 🚨 THIS FORCES IT TO RUN AT 12:30 AM IST
+  timezone: "Asia/Kolkata" 
 });
+
+
+
+
+
+
+
+
 
 // ==========================================
 // 🧪 4. TEMPORARY TEST CRON (Runs EVERY MINUTE for live testing)

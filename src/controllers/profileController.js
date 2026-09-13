@@ -332,6 +332,9 @@ const profile = await Profile.findOneAndUpdate(
 // ==========================================
 // 🚀 NEW: INSTANT BOOKING SLOT GENERATOR
 // ==========================================
+// ==========================================
+// 🚀 NEW: INSTANT BOOKING SLOT GENERATOR (IST-LOCKED)
+// ==========================================
 exports.getExpertSlots = async (req, res, next) => {
   try {
     const { id: expertId } = req.params;
@@ -339,29 +342,30 @@ exports.getExpertSlots = async (req, res, next) => {
     // 1. Fetch Expert Profile
     const profile = await Profile.findOne({ user: expertId });
     if (!profile || !profile.scheduleRules || !profile.scheduleRules.days) {
-      // If the expert hasn't set up the new calendar yet, return empty array
       return res.status(200).json({ success: true, data: [] });
     }
 
-    const { sessionDuration, bufferDuration, noticePeriodHours, days, blackoutDates } = profile.scheduleRules;
+    const { sessionDuration, bufferDuration, days } = profile.scheduleRules;
     
+    // 🚨 FIX 2A: Lock the baseline clock to Indian Standard Time
     const now = new Date();
-// 🚨 10-MINUTE SAFETY BUFFER: Students cannot book a slot that starts in less than 10 minutes
+    const nowIST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    
+    // Enforce 10-Minute Notice Period
     const minimumBookableTime = new Date(now.getTime() + (10 * 60 * 1000));
     
-    // Horizon: Look 14 days into the future
-    const horizon = new Date();
-    horizon.setDate(now.getDate() + 14);
+    const horizon = new Date(nowIST);
+    horizon.setDate(nowIST.getDate() + 14);
 
-    // 2. Fetch all of the Expert's existing bookings & temporary holds
+    // 2. Fetch all existing bookings
     const CallRequest = require('../models/CallRequest'); 
     const existingRequests = await CallRequest.find({
       recipient: expertId,
       status: { $in: ['holding', 'accepted', 'completed'] },
-      scheduledAt: { $gte: now, $lte: horizon }
+      // Check next 14 days based on absolute time
+      scheduledAt: { $gte: now, $lte: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000) }
     }).select('scheduledAt');
 
-    // Convert existing booked times to raw milliseconds for super fast checking
     const bookedTimeMs = existingRequests.map(req => new Date(req.scheduledAt).getTime());
 
     let availableSlots = [];
@@ -369,47 +373,43 @@ exports.getExpertSlots = async (req, res, next) => {
 
     // 3. The Math: Generate slots for the next 14 days
     for (let d = 0; d < 14; d++) {
-      let checkDate = new Date(now);
-      checkDate.setDate(now.getDate() + d);
-      const dayOfWeek = checkDate.getDay(); // 0 = Sun, 1 = Mon
+      let checkDate = new Date(nowIST);
+      checkDate.setDate(nowIST.getDate() + d);
+      const dayOfWeek = checkDate.getDay(); 
 
-      // See if the expert works on this specific day of the week
       const workingDay = days.find(day => day.dayOfWeek === dayOfWeek);
       if (!workingDay) continue; 
 
-      // Generate slots for each time window they set (e.g., 10:00 to 18:00)
+      // Get exact Year, Month, and Day in IST
+      const year = checkDate.getFullYear();
+      const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+      const date = String(checkDate.getDate()).padStart(2, '0');
+
       workingDay.timeWindows.forEach(window => {
         const [startHour, startMin] = window.start.split(':').map(Number);
         const [endHour, endMin] = window.end.split(':').map(Number);
 
-        // Build exact Date objects for the start and end of this window
-        let slotStartTime = new Date(checkDate);
-        slotStartTime.setHours(startHour, startMin, 0, 0);
+        // 🚨 FIX 2B: Build an exact +05:30 string. The server cannot mess this up!
+        let slotStartTime = new Date(`${year}-${month}-${date}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00+05:30`);
+        let windowEndTime = new Date(`${year}-${month}-${date}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00+05:30`);
 
-        let windowEndTime = new Date(checkDate);
-        windowEndTime.setHours(endHour, endMin, 0, 0);
-
-        // Slice the window into 30-min + 15-min buffer chunks
+        // Slice the window into chunks
         while (slotStartTime.getTime() + (sessionDuration * 60 * 1000) <= windowEndTime.getTime()) {
           const slotMs = slotStartTime.getTime();
 
-          // 🚨 3 Critical Checks to validate the slot:
           const isPastNoticePeriod = slotMs >= minimumBookableTime.getTime();
           const isNotBooked = !bookedTimeMs.includes(slotMs);
-          // (Optional: add blackoutDates check here if you use them)
 
           if (isPastNoticePeriod && isNotBooked) {
             availableSlots.push(new Date(slotStartTime)); 
           }
 
-          // Move forward to the next slot (e.g., jump 45 minutes)
           slotStartTime = new Date(slotMs + totalSlotTimeMs);
         }
       });
     }
 
-// 🚨 THE DUPLICATE SLAYER: If the expert accidentally created overlapping time blocks,
-    // this instantly removes any duplicate 30-minute slots!
+    // 🚨 THE DUPLICATE SLAYER: Wipe out any overlapping times
     const uniqueSlotsMs = [...new Set(availableSlots.map(date => date.getTime()))];
     const finalCleanSlots = uniqueSlotsMs.map(ms => new Date(ms)).sort((a, b) => a - b);
 

@@ -357,26 +357,60 @@ exports.zoomWebhook = async (req, res) => {
       // Reset the join timer for the next chunk so we don't double count
       callRequest.zoomMeeting.lastParticipantJoinTime = null; 
 
-      // TIME GATE CHECK: Is it an "Early Bird" accident?
-      const scheduledTime = new Date(callRequest.scheduledAt).getTime();
-      const currentTime = Date.now();
+// TIME GATE CHECK: Is it an "Early Bird" accident?
+      const scheduledTime = new Date(callRequest.scheduledAt).getTime();
+      const currentTime = Date.now();
 
-      if (currentTime < scheduledTime) {
-        console.log(`⚠️ EARLY BIRD DETECTED: Call ended before scheduled time. Leaving door open.`);
-        callRequest.zoomMeeting.status = 'waiting'; 
-        callRequest.markModified('zoomMeeting');
-        await callRequest.save();
-        return res.status(200).send('Processed as Early Bird accident');
-      }
+      if (currentTime < scheduledTime) {
+        console.log(`⚠️ EARLY BIRD DETECTED: Call ended before scheduled time. Resetting room.`);
+        
+        // 🚨 THE FIX: Force MongoDB to physically rip the timestamps out of the database
+        await CallRequest.updateOne(
+          { _id: callRequest._id },
+          {
+            $set: { 'zoomMeeting.status': 'waiting' },
+            $unset: { 
+              'zoomMeeting.expertJoinedAt': 1, 
+              'zoomMeeting.studentJoinedAt': 1 
+            }
+          }
+        );
 
-      // If we reach here, it's the actual scheduled session window.
-      // Did the student ever show up at all?
-      if (!callRequest.zoomMeeting.studentJoinedAt) {
-        console.log(`🚨 FRAUD WARNING: Student never joined. Keeping session open for reconnect.`);
-        callRequest.markModified('zoomMeeting');
-        await callRequest.save();
-        return res.status(200).send('Student missing. Waiting for reconnect.');
-      }
+        return res.status(200).send('Processed as Early Bird accident');
+      }
+
+      // If we reach here, it's the actual scheduled session window.
+      // Did the student ever show up at all?
+      if (!callRequest.zoomMeeting.studentJoinedAt) {
+        console.log(`🚨 FRAUD WARNING: Student never joined. Checking if expert waited long enough...`);
+
+        const actualEndTime = new Date(payload.object.end_time || Date.now());
+        const scheduledTimeDate = new Date(callRequest.scheduledAt);
+        
+        // 🚨 THE 10-MINUTE RULE: Expert must wait at least 10 minutes past the start time
+        const requiredWaitTime = new Date(scheduledTimeDate.getTime() + (10 * 60 * 1000));
+
+        if (actualEndTime < requiredWaitTime) {
+          console.log(`⚠️ EXPERT HIT-AND-RUN DETECTED: Expert left early. Wiping attendance.`);
+          
+          // 🚨 THE FIX: Force MongoDB to physically rip the expert's timestamp out
+          await CallRequest.updateOne(
+            { _id: callRequest._id },
+            {
+              $set: { 'zoomMeeting.status': 'waiting' },
+              $unset: { 'zoomMeeting.expertJoinedAt': 1 }
+            }
+          );
+
+        } else {
+          console.log(`✅ Expert successfully waited 10+ minutes. Their payout is secured.`);
+          // Only save normally if they didn't cheat!
+          callRequest.markModified('zoomMeeting');
+          await callRequest.save();
+        }
+
+        return res.status(200).send('Student missing. Enforced minimum wait rule.');
+      }
 
       // If Student total time is > 3 minutes, the session is officially a success!
       if (newTotalDuration >= 3) {

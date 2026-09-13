@@ -47,7 +47,13 @@ paymentStatus: {
       type: String, 
       enum: ['waiting', 'in_progress', 'completed', 'expert_no_show', 'student_no_show'],
       default: 'waiting'
-    }
+    },
+    
+  review: {
+    rating: { type: Number, min: 1, max: 5 }, // 1 to 5 stars
+    feedback: { type: String, maxLength: 500 },
+    submittedAt: { type: Date }
+  },
   },
 
 }, { timestamps: true });

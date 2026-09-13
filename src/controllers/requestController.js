@@ -291,3 +291,45 @@ exports.createInstantHold = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+// @desc    Submit a rating and review for a completed session
+// @route   POST /api/v1/requests/:id/review
+exports.submitReview = async (req, res, next) => {
+  try {
+    const { rating, feedback } = req.body;
+    const request = await CallRequest.findById(req.params.id);
+
+    if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
+    
+    // Security: Only the student who booked the session can review it
+    if (request.requester.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Only the student can leave a review.' });
+    }
+
+    if (request.status !== 'completed') {
+      return res.status(400).json({ success: false, error: 'You can only review completed sessions.' });
+    }
+
+    // 🚨 THE FIX: Use findByIdAndUpdate to FORCE MongoDB to save the nested object, 
+    // even if the session was created before we added reviews to the database!
+    const updatedRequest = await CallRequest.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          review: {
+            rating: Number(rating),
+            feedback: feedback || '',
+            submittedAt: Date.now()
+          }
+        }
+      },
+      { new: true } // Returns the newly updated document
+    );
+
+    res.status(200).json({ success: true, data: updatedRequest });
+  } catch (error) {
+    next(error);
+  }
+};
