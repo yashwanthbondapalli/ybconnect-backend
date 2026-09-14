@@ -293,7 +293,6 @@ exports.createInstantHold = async (req, res, next) => {
 };
 
 
-
 // @desc    Submit a rating and review for a completed session
 // @route   POST /api/v1/requests/:id/review
 exports.submitReview = async (req, res, next) => {
@@ -312,8 +311,7 @@ exports.submitReview = async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'You can only review completed sessions.' });
     }
 
-    // 🚨 THE FIX: Use findByIdAndUpdate to FORCE MongoDB to save the nested object, 
-    // even if the session was created before we added reviews to the database!
+    // 🚨 THE FIX: Add strict: false to FORCE MongoDB to save the review!
     const updatedRequest = await CallRequest.findByIdAndUpdate(
       req.params.id,
       {
@@ -325,7 +323,7 @@ exports.submitReview = async (req, res, next) => {
           }
         }
       },
-      { new: true } // Returns the newly updated document
+      { new: true, strict: false } // 👈 strict: false is the magic key!
     );
 
     res.status(200).json({ success: true, data: updatedRequest });
