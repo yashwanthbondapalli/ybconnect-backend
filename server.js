@@ -23,6 +23,8 @@ const rateLimit = require('express-rate-limit');
 const configRoutes = require('./src/routes/configRoutes.js');
 
 
+
+
 const app = express();
 // 🚨 GLOBAL LIGHT SWITCH: Log every single request that hits the server
 // 🚨 UPDATED GLOBAL LIGHT SWITCH: Log incoming request headers
@@ -104,7 +106,8 @@ app.use(errorHandler);
 const paymentRoutes = require('./src/routes/paymentRoutes');
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/zoom', zoomRoutes);
-
+const profileReportRoutes = require('./src/routes/profileReportRoutes');
+app.use('/api/v1/profile-reports',profileReportRoutes);
 const PORT = process.env.PORT || 5000;
 // Adding '0.0.0.0' forces the server to accept connections from outside the laptop
 app.listen(PORT, '0.0.0.0', () => {

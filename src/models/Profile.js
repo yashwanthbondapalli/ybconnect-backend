@@ -46,12 +46,15 @@ const ProfileSchema = new mongoose.Schema({
   hourlyRate: { type: Number, default: 0, min: 0 },
   
   // -- STRUCTURED SECTIONS (EXPERT ONLY) --
-  experience: [{ 
-    role: String,
-    company: String,
-    duration: String, // e.g., "2021 - 2023"
-    description: String
-  }],
+experience: [
+    {
+      type: { type: String, default: 'Job' }, // 🚨 FIX: Add this line so MongoDB saves the tag!
+      role: { type: String },
+      company: { type: String },
+      duration: { type: String },
+      description: { type: String }
+    }
+  ],
   servicesOffered: [{
     title: String,
     icon: String // e.g., "rocket", "mobile", "code"

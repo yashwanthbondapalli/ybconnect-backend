@@ -331,3 +331,88 @@ exports.submitReview = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Get all reviews for a specific expert
+// @route   GET /api/v1/requests/expert/:expertId/reviews
+// @desc    Get all reviews for a specific expert
+// @route   GET /api/v1/requests/expert/:expertId/reviews
+exports.getExpertReviews = async (req, res, next) => {
+  try {
+    const { expertId } = req.params;
+
+    // 🚨 FIX: Search BOTH the root level and inside zoomMeeting!
+    let reviews = await CallRequest.find({
+      recipient: expertId,
+      status: 'completed',
+      $or: [
+        { 'review.rating': { $exists: true } },
+        { 'zoomMeeting.review.rating': { $exists: true } }
+      ]
+    })
+    .populate('requester', 'name email slug profileImage') 
+    .sort({ 'review.submittedAt': -1, 'zoomMeeting.review.submittedAt': -1 }) 
+    .lean();
+
+    // 🚨 FIX: Normalize the data so the frontend always finds it in the same place
+    reviews = reviews.map(req => {
+      if (req.zoomMeeting && req.zoomMeeting.review && !req.review) {
+        req.review = req.zoomMeeting.review;
+      }
+      return req;
+    });
+
+    let totalRating = 0;
+    let averageRating = 0;
+    
+    if (reviews.length > 0) {
+      totalRating = reviews.reduce((sum, req) => sum + (req.review?.rating || 0), 0);
+      averageRating = (totalRating / reviews.length).toFixed(1); 
+    }
+
+    res.status(200).json({
+      success: true,
+      count: reviews.length,
+      stats: {
+        averageRating: Number(averageRating),
+        totalReviews: reviews.length
+      },
+      data: reviews
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete a submitted review (Student only)
+// @desc    Delete a submitted review (Student only)
+// @route   DELETE /api/v1/requests/:id/review
+exports.deleteReview = async (req, res, next) => {
+  try {
+    const request = await CallRequest.findById(req.params.id);
+
+    if (!request) {
+      return res.status(404).json({ success: false, error: 'Request not found' });
+    }
+
+    // Security Check: Ensure ONLY the student who wrote the review can delete it
+    if (request.requester.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'You can only delete your own reviews.' });
+    }
+
+    // 🚨 FIX: We must use strict: false here too, AND delete it from everywhere!
+    const updatedRequest = await CallRequest.findByIdAndUpdate(
+      req.params.id,
+      { 
+        $unset: { 
+          review: 1, 
+          "zoomMeeting.review": 1 
+        } 
+      }, 
+      { new: true, strict: false } // 👈 strict: false forces MongoDB to obey the delete!
+    );
+
+    res.status(200).json({ success: true, data: updatedRequest });
+  } catch (error) {
+    next(error);
+  }
+};

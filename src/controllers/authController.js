@@ -8,6 +8,10 @@ const generateUniqueSlug = require('../utils/generateSlug');
 const Profile = require('../models/Profile');
 const jwt = require('jsonwebtoken'); // Needed for the refresh route
 
+
+
+const DeletedAccount = require('../models/DeletedAccount'); // 🚨 Import the new model!
+
 exports.loginUser = async (req, res, next) => {
   try {
     let { email, password } = req.body;
@@ -329,32 +333,32 @@ exports.resetPasswordWithOtp = async (req, res) => {
     res.status(500).json({ success: false, error: 'Server error while resetting password.' });
   }
 };
+
+
 exports.deleteAccount = async (req, res, next) => {
   try {
-    const userId = req.user.id;
-    
-    // 1. Fetch the user first so we have their email for cleanup
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
+    // 1. Get the reason from the frontend (defaults to empty if they skipped it)
+    const { reason } = req.body; 
 
-    // 2. HARD DELETE: Permanently wipe their Profile data (Image, Bio, Links, etc.)
-    await Profile.findOneAndDelete({ user: userId });
+    // 2. Fetch the user before we delete them so we can log their details
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
-    // 3. HARD DELETE: Permanently wipe any dangling OTP codes
-    await OTP.deleteMany({ email: user.email });
-
-    // 4. HARD DELETE: Permanently wipe the User account (Email, Password, Name)
-    await User.findByIdAndDelete(userId);
-
-    res.status(200).json({ 
-      success: true, 
-      message: 'Account and all associated data securely and permanently deleted.' 
+    // 3. Save the feedback to the new cluster!
+    await DeletedAccount.create({
+      originalUserId: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      reasonForLeaving: reason || 'No reason provided'
     });
 
+    // 4. Proceed with nuking the data
+    await Profile.findOneAndDelete({ user: req.user.id });
+    await User.findByIdAndDelete(req.user.id);
+
+    res.status(200).json({ success: true, message: 'Account deleted and feedback logged.' });
   } catch (error) {
-    console.error("Delete Account Error:", error);
-    res.status(500).json({ success: false, error: 'Failed to delete account' });
+    next(error);
   }
 };
