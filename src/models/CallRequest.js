@@ -18,10 +18,15 @@ const CallRequestSchema = new mongoose.Schema({
   expiresAt: { type: Date }, // If the student abandons checkout, Mongo auto-deletes this!
 
   // 🚨 UPDATED: Added 'holding' to the enum for the 10-minute checkout lock
-  status: { type: String, enum: ['holding', 'pending', 'offer_made', 'accepted', 'rejected', 'completed', 'cancelled'], default: 'holding' },
+status: { type: String, enum: ['holding', 'pending', 'offer_made', 'accepted', 'rejected', 'completed', 'cancelled'], default: 'holding' },
   scheduledAt: { type: Date },
-  amount: { type: Number }, // Set by the expert when they make the offer
+  amount: { type: Number }, 
   reminderEmailSent: { type: Boolean, default: false },
+  
+  // 🚨 NEW: Track the Neon Nudge limit (Max 5)
+  nudgesSent: { type: Number, default: 0 }, 
+
+  // --- PAYMENT FIELDS ---
 
   // --- PAYMENT FIELDS ---
 paymentStatus: { 

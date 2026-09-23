@@ -6,7 +6,8 @@ const {
   createInstantHold,
   submitReview,
   getExpertReviews, // 🚨 NEW: Fetch Reviews
-  deleteReview      // 🚨 NEW: Delete Review
+  deleteReview,    // 🚨 NEW: Delete Review
+  sendNudge
 } = require('../controllers/requestController');
 const { protect } = require('../middlewares/authMiddleware');
 
@@ -32,5 +33,10 @@ router.post('/instant-hold', createInstantHold);
 router.route('/:id/review')
   .post(submitReview)
   .delete(deleteReview);
+
+
+  router.post('/:id/nudge', sendNudge);
+
+  
 
 module.exports = router;

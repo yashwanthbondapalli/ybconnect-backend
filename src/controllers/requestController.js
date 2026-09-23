@@ -5,6 +5,8 @@ const Profile = require('../models/Profile');
 const sendEmail = require('../utils/emailHelper');
 const sendPushNotification = require('../utils/pushHelper');
 
+
+
 // ==========================================
 // CASE 1: USER A REQUESTS EXPERT B
 // ==========================================
@@ -412,6 +414,71 @@ exports.deleteReview = async (req, res, next) => {
     );
 
     res.status(200).json({ success: true, data: updatedRequest });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+// ==========================================
+// 🚀 NEW: SEND NEON NUDGE (MEETING REMINDER)
+// ==========================================
+exports.sendNudge = async (req, res, next) => {
+  try {
+    const { customMessage } = req.body; // 🚨 NEW: Extract the custom message!
+    const request = await CallRequest.findById(req.params.id)
+      .populate('requester', 'name email')
+      .populate('recipient', 'name email');
+
+    if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
+
+    if (request.nudgesSent >= 5) {
+      return res.status(400).json({ success: false, error: 'Maximum reminders sent.' });
+    }
+
+    const isRequester = request.requester._id.toString() === req.user.id;
+    const sender = isRequester ? request.requester : request.recipient;
+    const receiver = isRequester ? request.recipient : request.requester;
+
+    // 🚨 NEW: Construct the dynamic message
+    const senderFirstName = sender.name.split(' ')[0];
+    const defaultMsg = `${senderFirstName} is waiting for you in the Zoom room. Please join ASAP!`;
+    const finalNotificationMsg = customMessage && customMessage.trim() !== '' 
+      ? `${senderFirstName} says: "${customMessage}"` 
+      : defaultMsg;
+
+    request.nudgesSent = (request.nudgesSent || 0) + 1;
+    await request.save();
+
+    // Send Push Notification
+    try {
+      await sendPushNotification(
+        receiver._id,
+        "Meeting Reminder! ⏰",
+        finalNotificationMsg
+      );
+    } catch (pushErr) {}
+
+    // Create In-App Notification
+    try {
+      await Notification.create({
+        user: receiver._id,
+        title: "Meeting Reminder! ⏰",
+        message: finalNotificationMsg
+      });
+    } catch (dbErr) {}
+
+    // Send Urgent Email
+    try {
+      await sendEmail({
+        email: receiver.email,
+        subject: `🔔 Urgent: ${senderFirstName} sent you a reminder!`,
+        message: `Hi ${receiver.name.split(' ')[0]},\n\n${finalNotificationMsg}\n\nThank you,\nYour YB Connect Team`
+      });
+    } catch (emailErr) {}
+
+    res.status(200).json({ success: true, nudgesSent: request.nudgesSent });
   } catch (error) {
     next(error);
   }
