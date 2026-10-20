@@ -35,7 +35,6 @@ exports.getCallToken = async (req, res, next) => {
     const isRequester = callRequest.requester._id.toString() === userIdStr;
     const isRecipient = callRequest.recipient._id.toString() === userIdStr;
 
-    // 1. Strict IDOR Authorization Check
     if (!isRequester && !isRecipient) {
       return res.status(403).json({
         success: false,
@@ -43,7 +42,6 @@ exports.getCallToken = async (req, res, next) => {
       });
     }
 
-    // 2. Validate Booking & Payment Status
     if (['cancelled', 'rejected'].includes(callRequest.status)) {
       return res.status(400).json({
         success: false,
@@ -70,7 +68,6 @@ exports.getCallToken = async (req, res, next) => {
       });
     }
 
-    // 3. Validate Session Timing Window (Unlocks 5 mins before start, closes 30 mins after scheduled end)
     const nowMs = Date.now();
     const scheduledStartMs = new Date(callRequest.scheduledAt).getTime();
     const durationMinutes = Number(callRequest.durationMinutes) || 30;
@@ -78,8 +75,8 @@ exports.getCallToken = async (req, res, next) => {
       ? new Date(callRequest.scheduledEndAt).getTime()
       : scheduledStartMs + durationMinutes * 60 * 1000;
 
-    const earliestJoinMs = scheduledStartMs - 5 * 60 * 1000; // 5 minutes before start
-    const latestJoinMs = scheduledEndMs + 30 * 60 * 1000;    // 30 minutes grace after scheduled end
+    const earliestJoinMs = scheduledStartMs - 5 * 60 * 1000;
+    const latestJoinMs = scheduledEndMs + 30 * 60 * 1000;
 
     if (nowMs < earliestJoinMs) {
       const minsUntilUnlock = Math.ceil((earliestJoinMs - nowMs) / 60000);
@@ -96,21 +93,24 @@ exports.getCallToken = async (req, res, next) => {
       });
     }
 
-    // 4. Fetch both profiles for display avatars & designations
     const [expertProfile, studentProfile] = await Promise.all([
-      Profile.findOne({ user: callRequest.recipient._id }).select('designation companyName profileImage').lean(),
-      Profile.findOne({ user: callRequest.requester._id }).select('major university profileImage').lean(),
+      Profile.findOne({ user: callRequest.recipient._id })
+        .select('designation companyName profileImage')
+        .lean(),
+      Profile.findOne({ user: callRequest.requester._id })
+        .select('major university profileImage')
+        .lean(),
     ]);
 
     const { roomName } = ensureBookingVideoSession(callRequest);
     const participantRole = isRecipient ? 'expert' : 'student';
     const participantIdentity = `${participantRole}_${userIdStr}`;
-    const participantName = isRecipient ? callRequest.recipient.name : callRequest.requester.name;
+    const participantName = isRecipient
+      ? callRequest.recipient.name
+      : callRequest.requester.name;
 
-    // Record initial join intent
     await recordParticipantJoin(callRequest, participantRole, new Date());
 
-    // 5. Generate short-lived room-scoped LiveKit token
     const token = await createParticipantToken({
       roomName,
       participantIdentity,
@@ -138,6 +138,10 @@ exports.getCallToken = async (req, res, next) => {
           scheduledEndAt: new Date(scheduledEndMs).toISOString(),
           durationMinutes,
           amount: callRequest.amount,
+          // 🚀 Send persisted attendance counters so rejoining never resets to 00:00!
+          bothConnectedSeconds: callRequest.videoSession?.bothConnectedSeconds || 0,
+          expertPresentSeconds: callRequest.videoSession?.expertPresentSeconds || 0,
+          studentPresentSeconds: callRequest.videoSession?.studentPresentSeconds || 0,
           expert: {
             _id: callRequest.recipient._id,
             name: callRequest.recipient.name,
@@ -167,7 +171,7 @@ exports.getCallToken = async (req, res, next) => {
  */
 exports.reportSessionEvent = async (req, res, next) => {
   try {
-    const { requestId, action } = req.body; // action: 'join' | 'heartbeat' | 'leave'
+    const { requestId, action } = req.body;
     if (!requestId || !action) {
       return res.status(400).json({ success: false, error: 'requestId and action are required.' });
     }
@@ -194,11 +198,13 @@ exports.reportSessionEvent = async (req, res, next) => {
       ensureBookingVideoSession(callRequest);
       if (role === 'expert') {
         callRequest.videoSession.expertJoinedAt = callRequest.videoSession.expertJoinedAt || now;
-        callRequest.videoSession.expertLastJoinedAt = callRequest.videoSession.expertLastJoinedAt || now;
+        callRequest.videoSession.expertLastJoinedAt =
+          callRequest.videoSession.expertLastJoinedAt || now;
         callRequest.videoSession.expertLastSeenAt = now;
       } else {
         callRequest.videoSession.studentJoinedAt = callRequest.videoSession.studentJoinedAt || now;
-        callRequest.videoSession.studentLastJoinedAt = callRequest.videoSession.studentLastJoinedAt || now;
+        callRequest.videoSession.studentLastJoinedAt =
+          callRequest.videoSession.studentLastJoinedAt || now;
         callRequest.videoSession.studentLastSeenAt = now;
       }
 
@@ -224,6 +230,9 @@ exports.reportSessionEvent = async (req, res, next) => {
       data: {
         status: callRequest.status,
         paymentStatus: callRequest.paymentStatus,
+        bothConnectedSeconds: callRequest.videoSession?.bothConnectedSeconds || 0,
+        expertPresentSeconds: callRequest.videoSession?.expertPresentSeconds || 0,
+        studentPresentSeconds: callRequest.videoSession?.studentPresentSeconds || 0,
         videoSession: callRequest.videoSession,
       },
     });
@@ -235,7 +244,6 @@ exports.reportSessionEvent = async (req, res, next) => {
 /**
  * @desc   Authoritative LiveKit Server Webhook Handler
  * @route  POST /api/v1/livekit/webhook
- * @access Public (Verified via LiveKit Webhook Signature)
  */
 exports.livekitWebhook = async (req, res) => {
   try {
@@ -246,7 +254,6 @@ exports.livekitWebhook = async (req, res) => {
     try {
       event = await verifyLiveKitWebhook(rawBody, authHeader);
     } catch (verifyErr) {
-      console.warn('🚨 LiveKit Webhook signature rejected:', verifyErr.message);
       return res.status(401).send('Invalid LiveKit webhook signature');
     }
 
@@ -259,10 +266,7 @@ exports.livekitWebhook = async (req, res) => {
     }
 
     const callRequest = await CallRequest.findOne({
-      $or: [
-        { 'videoSession.roomName': roomName },
-        { 'zoomMeeting.meetingId': roomName },
-      ],
+      $or: [{ 'videoSession.roomName': roomName }, { 'zoomMeeting.meetingId': roomName }],
     });
 
     if (!callRequest) {
@@ -271,7 +275,6 @@ exports.livekitWebhook = async (req, res) => {
 
     ensureBookingVideoSession(callRequest);
 
-    // Idempotency Guard: Ignore duplicate webhook deliveries
     if (eventId && callRequest.videoSession.processedWebhookIds?.includes(eventId)) {
       return res.status(200).send('Duplicate webhook ignored');
     }
