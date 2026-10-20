@@ -6,7 +6,7 @@ const sendPushNotification = require('../utils/pushHelper');
 const { ensureBookingVideoSession } = require('../utils/livekitHelper');
 
 const DEFAULT_FLOOR_BY_DURATION = {
-  10: 199,
+  10: 10,
   20: 299,
   30: 499,
   40: 599,
