@@ -78,7 +78,7 @@ const ProfileSchema = new mongoose.Schema({
     type: [
       {
         duration: { type: Number, enum: [10, 20, 30, 40, 60], required: true },
-        price: { type: Number, required: true, min: 199 },
+        price: { type: Number, required: true, min: 10 },
         minPrice: { type: Number, required: true },
         isEnabled: { type: Boolean, default: true },
       },

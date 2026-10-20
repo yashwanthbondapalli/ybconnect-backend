@@ -7,7 +7,7 @@ const Idea = require('../models/Idea');
 
 // Mandatory minimum price floors per duration (in INR)
 const PRICING_FLOORS = {
-  10: 199,
+  10: 10,
   20: 299,
   30: 499,
   40: 599,
