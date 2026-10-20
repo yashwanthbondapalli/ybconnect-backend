@@ -167,7 +167,7 @@ exports.updateRequestStatus = async (req, res, next) => {
         ? Number(durationMinutes)
         : Number(callRequest.durationMinutes) || 30;
 
-      const minFloor = DEFAULT_FLOOR_BY_DURATION[validDuration] || 199;
+      const minFloor = DEFAULT_FLOOR_BY_DURATION[validDuration] || 10;
       if (Number(amount) < minFloor) {
         return res.status(400).json({
           success: false,
