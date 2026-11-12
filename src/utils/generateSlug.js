@@ -1,27 +1,33 @@
-const User = require('../models/User'); // Adjust path to your User model
+// backend/src/utils/generateSlug.js
+const crypto = require('crypto');
+const User = require('../models/User');
 
-// 🚨 Add this utility function
 const generateUniqueSlug = async (name) => {
-  // 1. Clean the name: "Namala Sowbhagya Lakshmi" -> "namala-sowbhagya-lakshmi"
-  let baseSlug = name
+  const rawName = typeof name === 'string' ? name : '';
+  let baseSlug = rawName
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, '-') // Replace spaces and special chars with hyphens
-    .replace(/(^-|-$)+/g, '');   // Remove hyphens from start/end
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '')
+    .slice(0, 40);
 
-  // 2. Check if this slug already exists in your database
+  if (!baseSlug) {
+    baseSlug = 'member';
+  }
+
   let slug = baseSlug;
-  let slugExists = await User.findOne({ slug });
   let counter = 1;
 
-  // 3. If it exists, add a number to the end (e.g., namala-sowbhagya-lakshmi-1)
-  while (slugExists) {
+  while (counter <= 3) {
+    const exists = await User.exists({ slug });
+    if (!exists) return slug;
     slug = `${baseSlug}-${counter}`;
-    slugExists = await User.findOne({ slug });
     counter++;
   }
 
-  return slug;
+  // If >3 collisions exist, append a cryptographic 6-char hex suffix for O(1) resolution
+  const randomSuffix = crypto.randomBytes(3).toString('hex');
+  return `${baseSlug}-${randomSuffix}`;
 };
 
 module.exports = generateUniqueSlug;

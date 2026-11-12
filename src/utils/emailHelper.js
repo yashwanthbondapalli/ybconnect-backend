@@ -1,53 +1,63 @@
-// src/utils/emailHelper.js
-
+// backend/src/utils/emailHelper.js
 const sendEmail = async (options) => {
-  // 1. Grab the API key from Render's environment
   const apiKey = process.env.BREVO_API_KEY;
 
   if (!apiKey) {
-    console.error("🚨 CRITICAL: BREVO_API_KEY is missing from Render environment!");
+    console.error('🚨 CRITICAL: BREVO_API_KEY is missing from environment!');
     throw new Error('Email configuration error');
   }
 
-  // 2. Build the Brevo API payload
+  const recipientEmail = String(options?.email || options?.to || '')
+    .trim()
+    .toLowerCase();
+
+  if (!recipientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(recipientEmail)) {
+    throw new Error('Invalid recipient email address');
+  }
+
+  const cleanSubject = String(options?.subject || 'YB Connect Notification')
+    .replace(/[\r\n]+/g, ' ')
+    .trim()
+    .slice(0, 200);
+
   const payload = {
-    sender: { 
-      name: 'YB Connect', 
-      email: 'noreply@ybconnect.in' // Your verified domain!
+    sender: {
+      name: 'YB Connect',
+      email: 'noreply@ybconnect.in',
     },
-    to: [
-      { email: options.email || options.to }
-    ],
-    subject: options.subject,
-    textContent: options.message || options.text,
+    to: [{ email: recipientEmail }],
+    subject: cleanSubject,
+    textContent: String(options?.message || options?.text || ''),
   };
 
-  // 3. Blast it through Render's open HTTPS port (443)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
   try {
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
       headers: {
-        "accept": "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json"
+        accept: 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal,
     });
 
     const data = await response.json();
 
-    // Brevo returns a messageId if successful
     if (response.ok && data.messageId) {
-      console.log(`✅ SUCCESS: API Email blasted to ${payload.to[0].email} (ID: ${data.messageId})`);
       return true;
     } else {
-      console.error(`❌ BREVO API REJECTED IT:`, data);
+      console.error('❌ BREVO API REJECTED EMAIL:', data);
       throw new Error(data.message || 'Brevo API rejected the email');
     }
-
   } catch (error) {
-    console.error('❌ ERROR: Could not send email. Details:', error.message);
+    console.error('❌ Email Send Error:', error.message);
     throw new Error('Email could not be sent');
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 

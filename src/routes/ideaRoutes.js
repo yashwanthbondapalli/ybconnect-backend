@@ -1,36 +1,27 @@
+// backend/src/routes/ideaRoutes.js
 const express = require('express');
 const router = express.Router();
 
-// Import the controller functions
 const {
   createIdea,
+  updateIdea,
   getFeed,
   toggleLike,
   searchIdeas,
-  deleteIdea
+  deleteIdea,
 } = require('../controllers/ideaController');
 
-// Import your authentication middleware
-// Note: Adjust this path if your auth middleware is located somewhere else!
-const { protect } = require('../middlewares/authMiddleware'); 
+const { protect } = require('../middlewares/authMiddleware');
 
-// ==========================================
-// IDEA HUB ROUTES (Base: /api/v1/ideas)
-// ==========================================
+router.route('/search').get(protect, searchIdeas);
 
-// 🚨 IMPORTANT: The '/search' route must come BEFORE '/:id' 
-// Otherwise, Express will think "search" is an Idea ID!
-router.route('/search')
-  .get(protect, searchIdeas);
+router.route('/').post(protect, createIdea).get(protect, getFeed);
 
-router.route('/')
-  .post(protect, createIdea)
-  .get(protect, getFeed);
-
-router.route('/:id')
+router
+  .route('/:id')
+  .put(protect, updateIdea)
   .delete(protect, deleteIdea);
 
-router.route('/:id/like')
-  .put(protect, toggleLike);
+router.route('/:id/like').put(protect, toggleLike);
 
 module.exports = router;

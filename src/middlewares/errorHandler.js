@@ -1,41 +1,51 @@
+// backend/src/middlewares/errorHandler.js
 const errorHandler = (err, req, res, next) => {
-let error = Object.create(err);
-    Object.assign(error, err);
+  let statusCode = err.statusCode || 500;
+  let message = err.message || 'Server Error';
 
-  console.error(err);
+  console.error('🔥 API Error:', err.message);
 
-  // Mongoose bad ObjectId
+  // 1. Mongoose Bad ObjectId
   if (err.name === 'CastError') {
-    const message = `Resource not found`;
-    error = new Error(message);
-    error.statusCode = 404;
+    statusCode = 404;
+    message = 'Resource not found.';
   }
 
-  // Mongoose Duplicate Key (e.g. Email or Phone Number already exists)
+  // 2. Mongoose Duplicate Key Error (11000)
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
-    const message = `An account with that ${field} already exists.`;
-    error = new Error(message);
-    error.statusCode = 400;
+    statusCode = 400;
+    const field = err.keyValue ? Object.keys(err.keyValue)[0] : 'field';
+    message = `An account or record with that ${field} already exists.`;
   }
 
-  // Mongoose Validation Error (Missing required fields)
-  if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message).join(', ');
-    error = new Error(message);
-    error.statusCode = 400;
+  // 3. Mongoose Validation Error
+  if (err.name === 'ValidationError' && err.errors) {
+    statusCode = 400;
+    message = Object.values(err.errors)
+      .map((val) => val.message)
+      .join(', ');
   }
 
-// 🚨 THE FIX: Hide detailed stack traces/messages from the public in production
-      const isProduction = process.env.NODE_ENV === 'production';
-      const responseMessage = isProduction && !error.statusCode 
-        ? 'Internal Server Error' 
-        : (error.message || 'Server Error');
+  // 4. Malformed JSON Payload in Request Body
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    statusCode = 400;
+    message = 'Invalid JSON payload provided.';
+  }
 
-      res.status(error.statusCode || 500).json({
-        success: false,
-        error: responseMessage,
-      });
-    };
+  // 5. JWT Errors
+  if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+    statusCode = 401;
+    message = 'Not authorized. Invalid or expired token.';
+  }
+
+  const isProduction = process.env.NODE_ENV === 'production';
+  const safeResponseMessage =
+    isProduction && statusCode === 500 ? 'Internal Server Error' : message;
+
+  res.status(statusCode).json({
+    success: false,
+    error: safeResponseMessage,
+  });
+};
 
 module.exports = errorHandler;

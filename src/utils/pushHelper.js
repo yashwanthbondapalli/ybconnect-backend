@@ -1,27 +1,37 @@
+// backend/src/utils/pushHelper.js
 const axios = require('axios');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 
-/**
- * Sends an Expo Push Notification to a specific user
- * @param {string} userId - The MongoDB ID of the user receiving the notification
- * @param {string} title - Notification Title
- * @param {string} body - Notification Body message
- */
-async function sendPushNotification(userId, title, body) {
+async function sendPushNotification(userId, title, body, customData = {}) {
   try {
-    const user = await User.findById(userId);
-    
-    // Check if the user exists and actually has a push token saved from their phone
-    if (user && user.expoPushToken) {
-      await axios.post('https://exp.host/--/api/v2/push/send', {
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) return;
+
+    const user = await User.findById(userId)
+      .select('name expoPushToken isDeleted accountStatus')
+      .lean();
+
+    if (
+      !user ||
+      user.isDeleted ||
+      user.accountStatus === 'suspended' ||
+      typeof user.expoPushToken !== 'string' ||
+      !user.expoPushToken.startsWith('ExponentPushToken')
+    ) {
+      return;
+    }
+
+    await axios.post(
+      'https://exp.host/--/api/v2/push/send',
+      {
         to: user.expoPushToken,
         sound: 'default',
-        title: title,
-        body: body,
-        data: { screen: 'AppointmentsScreen' }, // Tells the app where to go when tapped!
-      });
-      console.log(`✅ Push sent to ${user.name}: "${title}"`);
-    }
+        title: String(title || 'YB Connect').slice(0, 100),
+        body: String(body || '').slice(0, 300),
+        data: { screen: 'AppointmentsScreen', ...customData },
+      },
+      { timeout: 8000 }
+    );
   } catch (error) {
     console.error('❌ Push Notification Error:', error.message);
   }

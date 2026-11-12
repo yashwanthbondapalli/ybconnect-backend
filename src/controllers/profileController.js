@@ -1,11 +1,13 @@
 // backend/src/controllers/profileController.js
+const mongoose = require('mongoose');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const CallRequest = require('../models/CallRequest');
 const generateUniqueSlug = require('../utils/generateSlug');
 const Idea = require('../models/Idea');
+const sendEmail = require('../utils/emailHelper');
+const sendPushNotification = require('../utils/pushHelper');
 
-// Mandatory minimum price floors per duration (in INR)
 const PRICING_FLOORS = {
   10: 10,
   20: 299,
@@ -21,10 +23,24 @@ const DEFAULT_TIERS = [10, 20, 30, 40, 60].map((d) => ({
   isEnabled: true,
 }));
 
-/**
- * Validates and normalizes the 5-tier sessionPricing array.
- * Ensures no tier is below its minimum floor and at least one tier is enabled.
- */
+// Never leak private bank details, personal phone numbers, or admin interview links on public views
+const PUBLIC_PROFILE_EXCLUSIONS =
+  '-accountNumber -ifscCode -razorpayAccountId -phoneNumber -zoomCredentials -mentorApplication';
+
+const escapeRegex = (str) => {
+  if (typeof str !== 'string') return '';
+  return str.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const safeJsonParse = (val, fallback) => {
+  if (typeof val !== 'string') return val !== undefined ? val : fallback;
+  try {
+    return JSON.parse(val);
+  } catch (e) {
+    return fallback;
+  }
+};
+
 const normalizeSessionPricing = (rawPricing, fallbackRate) => {
   if (!Array.isArray(rawPricing) || rawPricing.length === 0) {
     return DEFAULT_TIERS.map((tier) => {
@@ -73,7 +89,7 @@ const normalizeSessionPricing = (rawPricing, fallbackRate) => {
   return normalized;
 };
 
-// @desc    Get current user's profile
+// @desc    Get current logged-in user's own profile (Full private view)
 exports.getCurrentUserProfile = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id }).populate('user', [
@@ -81,6 +97,7 @@ exports.getCurrentUserProfile = async (req, res, next) => {
       'email',
       'slug',
       'phoneNumber',
+      'role',
     ]);
 
     if (!profile) {
@@ -92,6 +109,251 @@ exports.getCurrentUserProfile = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+      data: profile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Submit Mentor Verification & Interview Request
+// @route   POST /api/v1/profile/mentor-application
+exports.submitMentorApplication = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      phoneNumber,
+      designation,
+      companyName,
+      category,
+      yearsOfExperience,
+      linkedinUrl,
+      portfolioUrl,
+      preferredInterviewTime,
+      whyMentor,
+    } = req.body;
+
+    if (
+      typeof fullName !== 'string' ||
+      !fullName.trim() ||
+      typeof phoneNumber !== 'string' ||
+      !phoneNumber.trim() ||
+      typeof designation !== 'string' ||
+      !designation.trim() ||
+      typeof companyName !== 'string' ||
+      !companyName.trim() ||
+      typeof category !== 'string' ||
+      !category.trim() ||
+      typeof linkedinUrl !== 'string' ||
+      !linkedinUrl.trim() ||
+      typeof whyMentor !== 'string' ||
+      !whyMentor.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Please fill in all required verification fields (Name, Phone, Role, Company, Domain, LinkedIn URL, and Mentorship Pitch).',
+      });
+    }
+
+    const existingProfile = await Profile.findOne({ user: req.user.id });
+
+    if (existingProfile?.mentorApplicationStatus === 'approved') {
+      return res.status(400).json({
+        success: false,
+        error: 'Your mentor profile is already verified and unlocked!',
+      });
+    }
+
+    const cleanName = fullName.trim().slice(0, 80);
+    const currentUser = await User.findById(req.user.id);
+    if (currentUser && (currentUser.name !== cleanName || !currentUser.slug)) {
+      const newSlug = await generateUniqueSlug(cleanName);
+      await User.findByIdAndUpdate(req.user.id, {
+        name: cleanName,
+        slug: newSlug,
+      });
+    }
+
+    const applicationPayload = {
+      fullName: cleanName,
+      phoneNumber: phoneNumber.trim().slice(0, 15),
+      designation: designation.trim().slice(0, 100),
+      companyName: companyName.trim().slice(0, 100),
+      category: category.trim().slice(0, 80),
+      yearsOfExperience: Math.max(0, Math.min(60, Number(yearsOfExperience) || 0)),
+      linkedinUrl: linkedinUrl.trim().slice(0, 300),
+      portfolioUrl:
+        typeof portfolioUrl === 'string' ? portfolioUrl.trim().slice(0, 300) : '',
+      preferredInterviewTime:
+        typeof preferredInterviewTime === 'string' && preferredInterviewTime.trim()
+          ? preferredInterviewTime.trim().slice(0, 120)
+          : 'Flexible (IST)',
+      whyMentor: whyMentor.trim().slice(0, 1000),
+      submittedAt: new Date(),
+    };
+
+    const updatedProfile = await Profile.findOneAndUpdate(
+      { user: req.user.id },
+      {
+        $set: {
+          phoneNumber: applicationPayload.phoneNumber,
+          designation: applicationPayload.designation,
+          companyName: applicationPayload.companyName,
+          category: applicationPayload.category,
+          yearsOfExperience: applicationPayload.yearsOfExperience,
+          'socialLinks.linkedin': applicationPayload.linkedinUrl,
+          ...(applicationPayload.portfolioUrl
+            ? { 'socialLinks.website': applicationPayload.portfolioUrl }
+            : {}),
+          mentorApplicationStatus: 'pending',
+          mentorApplication: applicationPayload,
+        },
+        $setOnInsert: {
+          role: 'student',
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).populate('user', 'name email slug phoneNumber');
+
+    try {
+      const adminEmail =
+        process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'ybconnect10@gmail.com';
+
+      await Promise.all([
+        sendEmail({
+          email: currentUser.email,
+          subject: '🛡️ YB Connect Mentor Application Received - Next Step: 1:1 Interview',
+          message: `Hi ${cleanName},\n\nThank you for applying to become a Verified Mentor on YB Connect!\n\nWe have received your application:\n- Role: ${applicationPayload.designation} at ${applicationPayload.companyName}\n- Domain: ${applicationPayload.category} (${applicationPayload.yearsOfExperience} yrs exp)\n- Preferred Interview Window: ${applicationPayload.preferredInterviewTime}\n\nNext Step:\nOur verification team will review your LinkedIn and credentials and reach out to you on ${applicationPayload.phoneNumber} / email to conduct a quick 10-minute verification interview. Once qualified, your "I Mentor" studio will unlock automatically in the app!\n\nWarm regards,\nYB Connect Verification Team`,
+        }),
+        sendEmail({
+          email: adminEmail,
+          subject: `🚀 New Mentor Verification Application: ${cleanName} (${applicationPayload.companyName})`,
+          message: `New Mentor Application Submitted!\n\n- User ID: ${req.user.id}\n- Name: ${cleanName}\n- Email: ${currentUser.email}\n- Phone: ${applicationPayload.phoneNumber}\n- Role: ${applicationPayload.designation} @ ${applicationPayload.companyName}\n- Domain: ${applicationPayload.category}\n- Experience: ${applicationPayload.yearsOfExperience} years\n- LinkedIn: ${applicationPayload.linkedinUrl}\n- Portfolio: ${applicationPayload.portfolioUrl || 'N/A'}\n- Preferred Interview Window: ${applicationPayload.preferredInterviewTime}\n- Pitch: ${applicationPayload.whyMentor}`,
+        }),
+      ]);
+    } catch (emailErr) {
+      console.error('Mentor application email warning:', emailErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        'Application submitted! Our team will verify your details and schedule your interview.',
+      data: updatedProfile,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Admin Review Endpoint to Schedule Interview or Approve Mentor
+// @route   PUT /api/v1/profile/mentor-application/:userId/review
+exports.reviewMentorApplication = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid userId.' });
+    }
+
+    const { status, adminNotes, interviewScheduledAt, interviewLink } = req.body;
+
+    if (!['pending', 'interview_scheduled', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid status. Use pending, interview_scheduled, approved, or rejected.',
+      });
+    }
+
+    const updateFields = {
+      mentorApplicationStatus: status,
+      'mentorApplication.reviewedAt': new Date(),
+    };
+
+    if (typeof adminNotes === 'string') {
+      updateFields['mentorApplication.adminNotes'] = adminNotes.trim().slice(0, 500);
+    }
+    if (typeof interviewScheduledAt === 'string') {
+      updateFields['mentorApplication.interviewScheduledAt'] = interviewScheduledAt
+        .trim()
+        .slice(0, 120);
+    }
+    if (typeof interviewLink === 'string') {
+      updateFields['mentorApplication.interviewLink'] = interviewLink.trim().slice(0, 300);
+    }
+
+    const profile = await Profile.findOneAndUpdate(
+      { user: userId },
+      { $set: updateFields },
+      { new: true }
+    ).populate('user', 'name email slug');
+
+    if (!profile) {
+      return res.status(404).json({ success: false, error: 'Applicant profile not found.' });
+    }
+
+    try {
+      const candidateName = profile.user?.name || 'Mentor Candidate';
+      const candidateEmail = profile.user?.email;
+
+      if (status === 'interview_scheduled') {
+        await Promise.all([
+          sendPushNotification(
+            userId,
+            '📅 Mentor Interview Scheduled!',
+            `Your YB Connect verification interview is scheduled${
+              interviewScheduledAt ? ` for ${interviewScheduledAt}` : ''
+            }. Open Profile Studio for details!`
+          ),
+          candidateEmail &&
+            sendEmail({
+              email: candidateEmail,
+              subject: '📅 Your YB Connect Mentor Verification Interview is Scheduled!',
+              message: `Hi ${candidateName},\n\nYour profile passed our initial screening! We have scheduled your 1:1 Mentor Verification Interview.\n\n- Time: ${
+                interviewScheduledAt || 'As coordinated with our team'
+              }\n${interviewLink ? `- Meeting Link: ${interviewLink}\n` : ''}${
+                adminNotes ? `- Note from Team: ${adminNotes}\n` : ''
+              }\nOnce the interview is completed, we will unlock your Mentor Studio inside the YB Connect app.\n\nBest regards,\nYB Connect Team`,
+            }),
+        ]);
+      } else if (status === 'approved') {
+        await Promise.all([
+          sendPushNotification(
+            userId,
+            '🎉 Mentor Studio Unlocked!',
+            'Congratulations! You passed the YB Connect verification interview. You can now publish your Mentor profile!'
+          ),
+          candidateEmail &&
+            sendEmail({
+              email: candidateEmail,
+              subject: '🎉 Congratulations! Your YB Connect Mentor Studio is Now Unlocked',
+              message: `Hi ${candidateName},\n\nCongratulations on qualifying through our Mentor Verification Interview!\n\nYour "I Mentor (Expert)" studio is now 100% UNLOCKED in the YB Connect app.\n\nWelcome to the YB Connect Verified Mentor network!\n\nWarm regards,\nYB Connect Team`,
+            }),
+        ]);
+      } else if (status === 'rejected') {
+        await Promise.all([
+          sendPushNotification(
+            userId,
+            'Update on Your Mentor Application',
+            'Please check Profile Studio for feedback on your mentor verification request.'
+          ),
+          candidateEmail &&
+            sendEmail({
+              email: candidateEmail,
+              subject: 'Update on Your YB Connect Mentor Application',
+              message: `Hi ${candidateName},\n\nThank you for taking the time to apply as a mentor on YB Connect.\n\nAt this stage, we are unable to approve your mentor profile.${
+                adminNotes ? `\n\nFeedback from our team: ${adminNotes}` : ''
+              }\n\nYou can update your details and re-apply from Profile Studio whenever you are ready.\n\nBest regards,\nYB Connect Team`,
+            }),
+        ]);
+      }
+    } catch (notifyErr) {
+      console.error('Review notification error:', notifyErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Mentor application status updated to "${status}".`,
       data: profile,
     });
   } catch (error) {
@@ -142,9 +404,8 @@ exports.upsertProfile = async (req, res, next) => {
       socialLinks,
     } = req.body;
 
-    // 1. Update Name AND dynamically regenerate Slug if changed
-    if (name && name.trim() !== '') {
-      const cleanName = name.trim();
+    if (typeof name === 'string' && name.trim() !== '') {
+      const cleanName = name.trim().slice(0, 80);
       const currentUser = await User.findById(req.user.id);
 
       if (currentUser && (currentUser.name !== cleanName || !currentUser.slug)) {
@@ -156,17 +417,28 @@ exports.upsertProfile = async (req, res, next) => {
       }
     }
 
-    // 2. Validate 5-Tier Session Pricing (for Experts)
-    const effectiveRole = role || 'expert';
-    let validatedPricing = DEFAULT_TIERS;
-    let derivedBaseRate = Number(hourlyRate) || 499;
+    const existingProfile = await Profile.findOne({ user: req.user.id });
+
+    // Security Gate: Only allow publishing as 'expert' if mentorApplicationStatus === 'approved'
+    const requestedRole = role || existingProfile?.role || 'student';
+    if (requestedRole === 'expert' && existingProfile?.mentorApplicationStatus !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Mentor Verification Required: Please submit your mentor verification request and complete the 1:1 interview before publishing a Mentor profile.',
+      });
+    }
+
+    const effectiveRole =
+      existingProfile?.mentorApplicationStatus === 'approved' ? requestedRole : 'student';
+
+    let validatedPricing = existingProfile?.sessionPricing || DEFAULT_TIERS;
+    let derivedBaseRate = Number(hourlyRate) || existingProfile?.hourlyRate || 499;
 
     if (effectiveRole === 'expert') {
-      const parsedPricing =
-        typeof sessionPricing === 'string' ? JSON.parse(sessionPricing) : sessionPricing;
+      const parsedPricing = safeJsonParse(sessionPricing, []);
       validatedPricing = normalizeSessionPricing(parsedPricing, hourlyRate);
 
-      // Keep hourlyRate synced to the 30-min tier (or lowest enabled tier) for feed cards
       const thirtyMinTier = validatedPricing.find((t) => t.duration === 30 && t.isEnabled);
       const lowestEnabledTier = validatedPricing
         .filter((t) => t.isEnabled)
@@ -178,7 +450,15 @@ exports.upsertProfile = async (req, res, next) => {
         : 499;
     }
 
-    // 3. Build profileFields object
+    // Validate profileImage URL
+    let safeProfileImage = existingProfile?.profileImage || 'default-avatar.png';
+    if (
+      typeof profileImage === 'string' &&
+      (profileImage === 'default-avatar.png' || profileImage.startsWith('https://'))
+    ) {
+      safeProfileImage = profileImage.trim();
+    }
+
     const profileFields = {
       user: req.user.id,
       role: effectiveRole,
@@ -189,12 +469,12 @@ exports.upsertProfile = async (req, res, next) => {
       category,
       city,
       bio,
-      yearsOfExperience: Number(yearsOfExperience) || 0,
+      yearsOfExperience: Math.max(0, Math.min(60, Number(yearsOfExperience) || 0)),
       achievements,
       hourlyRate: derivedBaseRate,
       sessionPricing: validatedPricing,
-      profileImage: profileImage || 'default-avatar.png',
-      'zoomCredentials.isConnected': true, // Native LiveKit is always connected
+      profileImage: safeProfileImage,
+      'zoomCredentials.isConnected': true,
       yearOfStudy,
       university,
       major,
@@ -207,17 +487,15 @@ exports.upsertProfile = async (req, res, next) => {
       leadership,
     };
 
-    if (phoneNumber && phoneNumber.trim() !== '') {
-      profileFields.phoneNumber = phoneNumber;
+    if (typeof phoneNumber === 'string' && phoneNumber.trim() !== '') {
+      profileFields.phoneNumber = phoneNumber.trim().slice(0, 15);
     }
-    if (availability) {
+    if (availability && typeof availability === 'object') {
       profileFields.availability = availability;
     }
 
-    // 4. Normalize Schedule Rules (Uniform or Custom Per-Day)
     if (scheduleRules) {
-      const parsedRules =
-        typeof scheduleRules === 'string' ? JSON.parse(scheduleRules) : scheduleRules;
+      const parsedRules = safeJsonParse(scheduleRules, {});
 
       const cleanDays = Array.isArray(parsedRules.days)
         ? parsedRules.days
@@ -245,54 +523,48 @@ exports.upsertProfile = async (req, res, next) => {
       };
     }
 
-    // 5. Handle String Arrays
     if (skills) {
       profileFields.skills = Array.isArray(skills)
         ? skills
-        : skills.split(',').map((s) => s.trim()).filter(Boolean);
+        : String(skills).split(',').map((s) => s.trim()).filter(Boolean);
     }
     if (techSkills) {
       profileFields.techSkills = Array.isArray(techSkills)
         ? techSkills
-        : techSkills.split(',').map((s) => s.trim()).filter(Boolean);
+        : String(techSkills).split(',').map((s) => s.trim()).filter(Boolean);
     }
     if (softSkills) {
       profileFields.softSkills = Array.isArray(softSkills)
         ? softSkills
-        : softSkills.split(',').map((s) => s.trim()).filter(Boolean);
+        : String(softSkills).split(',').map((s) => s.trim()).filter(Boolean);
     }
     if (languages) {
       profileFields.languages = Array.isArray(languages)
         ? languages
-        : languages.split(',').map((l) => l.trim()).filter(Boolean);
+        : String(languages).split(',').map((l) => l.trim()).filter(Boolean);
     }
     if (industries) {
       profileFields.industries = Array.isArray(industries)
         ? industries
-        : industries.split(',').map((i) => i.trim()).filter(Boolean);
+        : String(industries).split(',').map((i) => i.trim()).filter(Boolean);
     }
     if (interests) {
       profileFields.interests = Array.isArray(interests)
         ? interests
-        : interests.split(',').map((i) => i.trim()).filter(Boolean);
+        : String(interests).split(',').map((i) => i.trim()).filter(Boolean);
     }
 
-    // 6. Handle Structured Arrays
-    if (experience) {
-      profileFields.experience =
-        typeof experience === 'string' ? JSON.parse(experience) : experience;
+    if (experience !== undefined) {
+      profileFields.experience = safeJsonParse(experience, []);
     }
-    if (servicesOffered) {
-      profileFields.servicesOffered =
-        typeof servicesOffered === 'string' ? JSON.parse(servicesOffered) : servicesOffered;
+    if (servicesOffered !== undefined) {
+      profileFields.servicesOffered = safeJsonParse(servicesOffered, []);
     }
-    if (portfolio) {
-      profileFields.portfolio =
-        typeof portfolio === 'string' ? JSON.parse(portfolio) : portfolio;
+    if (portfolio !== undefined) {
+      profileFields.portfolio = safeJsonParse(portfolio, []);
     }
 
-    // 7. Handle Social Links
-    if (socialLinks) {
+    if (socialLinks && typeof socialLinks === 'object') {
       profileFields.socialLinks = {
         linkedin: socialLinks.linkedin || '',
         instagram: socialLinks.instagram || '',
@@ -303,14 +575,12 @@ exports.upsertProfile = async (req, res, next) => {
       };
     }
 
-    // 8. Save to MongoDB
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       { $set: profileFields },
       { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
     ).populate('user', 'name email slug phoneNumber');
 
-    // Synchronize past Idea Hub posts with updated author info
     try {
       await Idea.updateMany(
         { authorId: req.user.id },
@@ -334,13 +604,16 @@ exports.upsertProfile = async (req, res, next) => {
   }
 };
 
-// @desc    Get profile by user ID (Public View)
+// @desc    Get profile by user ID (Public View — Private Fields Excluded)
 exports.getProfileByUserId = async (req, res, next) => {
   try {
-    const profile = await Profile.findOne({ user: req.params.userId }).populate(
-      'user',
-      'name slug'
-    );
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID' });
+    }
+
+    const profile = await Profile.findOne({ user: req.params.userId })
+      .select(PUBLIC_PROFILE_EXCLUSIONS)
+      .populate('user', 'name slug');
 
     if (!profile) {
       return res.status(404).json({ success: false, error: 'Profile not found for this user' });
@@ -352,24 +625,26 @@ exports.getProfileByUserId = async (req, res, next) => {
   }
 };
 
-// @desc    Get profile by slug
+// @desc    Get profile by slug (Public View — Private Fields Excluded)
 exports.getProfileBySlug = async (req, res) => {
   try {
-    const { slug } = req.params;
-    const user = await User.findOne({ slug }).select('-password');
+    const slug = typeof req.params.slug === 'string' ? req.params.slug.trim().toLowerCase() : '';
+    const user = await User.findOne({ slug }).select('name slug');
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Expert not found' });
+      return res.status(404).json({ success: false, message: 'Profile not found' });
     }
 
-    const profile = await Profile.findOne({ user: user._id }).populate('user', 'name slug');
+    const profile = await Profile.findOne({ user: user._id })
+      .select(PUBLIC_PROFILE_EXCLUSIONS)
+      .populate('user', 'name slug');
 
     if (!profile) {
       return res.status(200).json({
         success: true,
         data: {
           user: { _id: user._id, name: user.name, slug: user.slug },
-          designation: 'New Expert',
-          bio: 'This expert is still setting up their profile.',
+          designation: 'Member',
+          bio: 'This user is still setting up their profile.',
           skills: [],
           languages: [],
           hourlyRate: 499,
@@ -386,13 +661,21 @@ exports.getProfileBySlug = async (req, res) => {
   }
 };
 
-// @desc    Get profile by either User ID or Profile ID
+// @desc    Get profile by either User ID or Profile ID (Public View)
 exports.getProfileByAnyId = async (req, res, next) => {
   try {
     const { id } = req.params;
-    let profile = await Profile.findOne({ user: id }).populate('user', 'name slug');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid ID' });
+    }
+
+    let profile = await Profile.findOne({ user: id })
+      .select(PUBLIC_PROFILE_EXCLUSIONS)
+      .populate('user', 'name slug');
     if (!profile) {
-      profile = await Profile.findById(id).populate('user', 'name slug');
+      profile = await Profile.findById(id)
+        .select(PUBLIC_PROFILE_EXCLUSIONS)
+        .populate('user', 'name slug');
     }
     if (!profile) {
       return res.status(404).json({ success: false, error: 'Profile not found' });
@@ -403,11 +686,26 @@ exports.getProfileByAnyId = async (req, res, next) => {
   }
 };
 
-// @desc    Toggle Live Status (Instant Solver)
-exports.toggleLiveStatus = async (req, res, next) => {
+// @desc    Toggle Live Status (Restricted to Verified Mentors Only)
+exports.toggleLiveStatus = async (req, res) => {
   try {
-    const { isLive, status } = req.body;
-    const newStatus = status || (isLive ? 'available' : 'offline');
+    const existingProfile = await Profile.findOne({ user: req.user.id });
+    if (!existingProfile) {
+      return res.status(404).json({ success: false, error: 'Profile not found' });
+    }
+
+    if (
+      existingProfile.role !== 'expert' ||
+      existingProfile.mentorApplicationStatus !== 'approved'
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only verified mentors can go live.',
+      });
+    }
+
+    const isLive = Boolean(req.body.isLive);
+    const newStatus = isLive ? 'available' : 'offline';
 
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
@@ -419,11 +717,7 @@ exports.toggleLiveStatus = async (req, res, next) => {
         },
       },
       { new: true }
-    ).populate('user', 'name email slug');
-
-    if (!profile) {
-      return res.status(404).json({ success: false, error: 'Profile not found' });
-    }
+    ).populate('user', 'name slug');
 
     res.status(200).json({ success: true, data: profile });
   } catch (error) {
@@ -432,24 +726,48 @@ exports.toggleLiveStatus = async (req, res, next) => {
   }
 };
 
-// @desc    Get all Student Profiles for the Home Screen Talent Section
+// @desc    Get all Student Profiles for the Home Screen Talent Section (ReDoS-Safe & Capped)
 exports.getStudentTalent = async (req, res) => {
   try {
-    const { intent } = req.query;
+    const rawIntent = typeof req.query.intent === 'string' ? req.query.intent.trim() : '';
     const query = { role: 'student' };
 
-    if (intent && intent !== 'All') {
-      query.studentLookingFor = { $regex: intent, $options: 'i' };
+    if (rawIntent && rawIntent !== 'All') {
+      const safeIntent = escapeRegex(rawIntent.slice(0, 60));
+      query.studentLookingFor = { $regex: safeIntent, $options: 'i' };
     }
 
+    // 1. Fetch profiles matching role and intent
     const students = await Profile.find(query)
-      .populate('user', 'name slug')
-      .sort({ createdAt: -1 });
+      .select(PUBLIC_PROFILE_EXCLUSIONS)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    // 2. Fetch active users manually to avoid Mongoose populate match casting errors
+    const userIds = students.map((s) => s.user).filter(Boolean);
+    const activeUsers = await User.collection.find({
+      _id: { $in: userIds },
+      isDeleted: { $ne: true },
+      accountStatus: { $nin: ['deleted', 'suspended'] },
+    }).toArray();
+
+    const activeUserMap = new Map(
+      activeUsers.map((u) => [String(u._id), { _id: u._id, name: u.name, slug: u.slug }])
+    );
+
+    // 3. Attach user details and filter out inactive accounts
+    const validStudents = students
+      .map((s) => ({
+        ...s,
+        user: activeUserMap.get(String(s.user)) || null,
+      }))
+      .filter((s) => s.user != null);
 
     res.status(200).json({
       success: true,
-      count: students.length,
-      data: students,
+      count: validStudents.length,
+      data: validStudents,
     });
   } catch (error) {
     console.error('Error fetching talent:', error);
@@ -460,16 +778,24 @@ exports.getStudentTalent = async (req, res) => {
 // @desc    Auto-save just the profile picture
 exports.updateProfileImage = async (req, res) => {
   try {
-    const { profileImage, role } = req.body;
-    if (!profileImage) {
-      return res.status(400).json({ success: false, error: 'No image URL provided' });
+    const { profileImage } = req.body;
+    if (
+      typeof profileImage !== 'string' ||
+      !profileImage.trim().startsWith('https://')
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'A valid HTTPS image URL is required.',
+      });
     }
+
+    const cleanImageUrl = profileImage.trim().slice(0, 500);
 
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       {
-        $set: { profileImage },
-        $setOnInsert: { role: role || 'expert' },
+        $set: { profileImage: cleanImageUrl },
+        $setOnInsert: { role: 'student' },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
@@ -490,9 +816,6 @@ exports.updateProfileImage = async (req, res) => {
   }
 };
 
-/**
- * Helper: Returns { year, month, day, dayOfWeek } for a given UTC timestamp in Asia/Kolkata
- */
 const getISTDateParts = (dateObj) => {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
@@ -516,46 +839,51 @@ const getISTDateParts = (dateObj) => {
   };
 };
 
-// =========================================================================
-// 🚀 DYNAMIC MULTI-DURATION & RANGE-SAFE SLOT GENERATOR (IST)
-// @route GET /api/v1/profile/user/:id/slots?duration=30
-// =========================================================================
+// @desc    Dynamic Multi-Duration & Range-Safe Slot Generator (IST)
+// @route   GET /api/v1/profile/user/:id/slots?duration=30
 exports.getExpertSlots = async (req, res) => {
   try {
     const { id: expertId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(expertId)) {
+      return res.status(400).json({ success: false, error: 'Invalid expert ID' });
+    }
+
     const requestedDuration = Number(req.query.duration) || 30;
 
     const profile = await Profile.findOne({ user: expertId });
-    if (!profile || !profile.scheduleRules || !Array.isArray(profile.scheduleRules.days)) {
-      return res.status(200).json({ success: true, data: [] });
+    
+    // 🛡️ FALLBACK: If mentor hasn't configured schedule rules yet, provide default 10 AM - 6 PM IST slots!
+    let days = profile?.scheduleRules?.days;
+    if (!profile || !profile.scheduleRules || !Array.isArray(days) || days.length === 0) {
+      days = [1, 2, 3, 4, 5].map((d) => ({
+        dayOfWeek: d,
+        timeWindows: [{ start: '10:00', end: '18:00' }],
+      }));
     }
 
-    const bufferDuration = Math.max(0, Number(profile.scheduleRules.bufferDuration) || 0);
-    const days = profile.scheduleRules.days;
-    const dateOverrides = profile.scheduleRules.dateOverrides || [];
-    const blackoutDates = (profile.scheduleRules.blackoutDates || []).map((d) =>
+    const bufferDuration = Math.max(0, Number(profile?.scheduleRules?.bufferDuration) || 0);
+    const dateOverrides = profile?.scheduleRules?.dateOverrides || [];
+    const blackoutDates = (profile?.scheduleRules?.blackoutDates || []).map((d) =>
       getISTDateParts(new Date(d)).dateStr
     );
 
     const sessionDuration = [10, 20, 30, 40, 60].includes(requestedDuration)
       ? requestedDuration
-      : Number(profile.scheduleRules.sessionDuration) || 30;
+      : Number(profile?.scheduleRules?.sessionDuration) || 30;
 
     const now = new Date();
-    const minimumBookableMs = now.getTime() + 10 * 60 * 1000; // 10-minute minimum notice
+    const minimumBookableMs = now.getTime() + 10 * 60 * 1000;
     const horizonMs = now.getTime() + 14 * 24 * 60 * 60 * 1000;
 
-    // Fetch all active bookings in the next 14 days to prevent range overlaps
-    const existingRequests = await CallRequest.find({
-      recipient: expertId,
-      status: { $in: ['holding', 'accepted'] },
+    // Use native collection find to prevent any Mongoose query cast errors
+    const existingRequests = await CallRequest.collection.find({
+      recipient: new mongoose.Types.ObjectId(expertId),
+      status: 'accepted',
       scheduledAt: {
         $gte: new Date(now.getTime() - 2 * 60 * 60 * 1000),
         $lte: new Date(horizonMs),
       },
-    })
-      .select('scheduledAt scheduledEndAt durationMinutes')
-      .lean();
+    }).toArray();
 
     const bookedIntervals = existingRequests.map((reqItem) => {
       const startMs = new Date(reqItem.scheduledAt).getTime();
@@ -571,19 +899,20 @@ exports.getExpertSlots = async (req, res) => {
 
     const availableSlots = [];
     const sessionMs = sessionDuration * 60 * 1000;
-    // Step interval: For 10/20m sessions, step by (sessionDuration + buffer). For 30/40/60m, step by 30m (or sessionDuration + buffer if buffer > 0)
     const stepMinutes =
-      bufferDuration > 0 ? sessionDuration + bufferDuration : sessionDuration <= 20 ? sessionDuration : 30;
+      bufferDuration > 0
+        ? sessionDuration + bufferDuration
+        : sessionDuration <= 20
+        ? sessionDuration
+        : 30;
     const stepMs = stepMinutes * 60 * 1000;
 
     for (let d = 0; d < 14; d++) {
       const targetInstant = new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
       const { dateStr, dayOfWeek } = getISTDateParts(targetInstant);
 
-      // Skip blackout / holiday dates
       if (blackoutDates.includes(dateStr)) continue;
 
-      // Check date-specific override first, then recurring weekly day
       const override = dateOverrides.find((o) => o.date === dateStr);
       if (override && override.isUnavailable) continue;
 
@@ -601,21 +930,16 @@ exports.getExpertSlots = async (req, res) => {
         const [startHour, startMin] = window.start.split(':').map(Number);
         const [endHour, endMin] = window.end.split(':').map(Number);
 
-        let slotStartTime = new Date(
-          `${dateStr}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(
-            2,
-            '0'
-          )}:00+05:30`
-        );
-        const windowEndTime = new Date(
-          `${dateStr}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(
-            2,
-            '0'
-          )}:00+05:30`
-        );
+        // Construct IST date safely by parsing UTC offset parts
+        const baseIsoString = `${dateStr}T00:00:00.000+05:30`;
+        const baseEpochMs = new Date(baseIsoString).getTime();
 
-        while (slotStartTime.getTime() + sessionMs <= windowEndTime.getTime()) {
-          const candidateStartMs = slotStartTime.getTime();
+        const windowStartMs = baseEpochMs + (startHour * 60 + startMin) * 60 * 1000;
+        const windowEndMs = baseEpochMs + (endHour * 60 + endMin) * 60 * 1000;
+
+        let candidateStartMs = windowStartMs;
+
+        while (candidateStartMs + sessionMs <= windowEndMs) {
           const candidateEndMs = candidateStartMs + sessionMs;
 
           const isPastNoticePeriod = candidateStartMs >= minimumBookableMs;
@@ -627,7 +951,7 @@ exports.getExpertSlots = async (req, res) => {
             availableSlots.push(new Date(candidateStartMs));
           }
 
-          slotStartTime = new Date(candidateStartMs + stepMs);
+          candidateStartMs += stepMs;
         }
       });
     }

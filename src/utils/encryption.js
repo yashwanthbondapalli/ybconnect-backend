@@ -1,24 +1,34 @@
+// backend/src/utils/encryption.js
 const crypto = require('crypto');
 
 const ALGORITHM = 'aes-256-gcm';
+const IV_BYTE_LENGTH = 12;
+const AUTH_TAG_BYTE_LENGTH = 16;
 
 const getKey = () => {
-  const key = process.env.ZOOM_TOKEN_ENCRYPTION_KEY;
+  const rawKey = process.env.ZOOM_TOKEN_ENCRYPTION_KEY || process.env.JWT_SECRET;
 
-  if (!key) {
-    throw new Error('ZOOM_TOKEN_ENCRYPTION_KEY is not configured');
+  if (!rawKey) {
+    throw new Error('Encryption key is not configured in environment variables');
   }
 
-  return Buffer.from(key, 'hex');
+  // If rawKey is already a valid 64-character hex string (32 bytes), use it directly
+  if (/^[0-9a-fA-F]{64}$/.test(rawKey)) {
+    return Buffer.from(rawKey, 'hex');
+  }
+
+  // Otherwise derive a deterministic 32-byte key via SHA-256 so AES-256 never crashes
+  return crypto.createHash('sha256').update(String(rawKey)).digest();
 };
 
 const encrypt = (text) => {
-  if (!text) return text;
+  if (!text || typeof text !== 'string') return text;
 
   const key = getKey();
-
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const iv = crypto.randomBytes(IV_BYTE_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_BYTE_LENGTH,
+  });
 
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -29,21 +39,31 @@ const encrypt = (text) => {
 };
 
 const decrypt = (encryptedText) => {
-  if (!encryptedText) return encryptedText;
+  if (!encryptedText || typeof encryptedText !== 'string') return encryptedText;
 
   const key = getKey();
+  const parts = encryptedText.split(':');
 
-  const [ivHex, authTagHex, encryptedHex] = encryptedText.split(':');
+  if (parts.length !== 3) {
+    throw new Error('Invalid encrypted token format');
+  }
+
+  const [ivHex, authTagHex, encryptedHex] = parts;
 
   if (!ivHex || !authTagHex || !encryptedHex) {
-    throw new Error('Invalid encrypted token format');
+    throw new Error('Invalid encrypted token components');
   }
 
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  if (iv.length !== IV_BYTE_LENGTH || authTag.length !== AUTH_TAG_BYTE_LENGTH) {
+    throw new Error('Security Alert: Invalid IV or GCM AuthTag length');
+  }
 
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_BYTE_LENGTH,
+  });
   decipher.setAuthTag(authTag);
 
   let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
@@ -54,5 +74,5 @@ const decrypt = (encryptedText) => {
 
 module.exports = {
   encrypt,
-  decrypt
+  decrypt,
 };

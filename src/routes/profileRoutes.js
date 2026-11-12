@@ -1,43 +1,40 @@
+// backend/src/routes/profileRoutes.js
 const express = require('express');
-// 🚨 FIX 1: Make sure toggleLiveStatus is imported here!
-const { 
-  getCurrentUserProfile, 
-  upsertProfile, 
-  getProfileByUserId, 
+const {
+  getCurrentUserProfile,
+  upsertProfile,
+  getProfileByUserId,
   getProfileBySlug,
   toggleLiveStatus,
   getProfileByAnyId,
   getStudentTalent,
   updateProfileImage,
-  getExpertSlots
+  getExpertSlots,
+  submitMentorApplication,
+  reviewMentorApplication,
 } = require('../controllers/profileController');
-const { protect } = require('../middlewares/authMiddleware');
+
+const { protect, adminOnly } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
+
 router.get('/talent', getStudentTalent);
 
-router.route('/me')
+router
+  .route('/me')
   .get(protect, getCurrentUserProfile)
   .post(protect, upsertProfile);
 
-// 🚨 FIX 2: Add the toggle route right here!
+// Mentor Verification & Interview Routes
+router.post('/mentor-application', protect, submitMentorApplication);
+router.put('/mentor-application/:userId/review', protect, adminOnly, reviewMentorApplication);
+
 router.put('/live-status', protect, toggleLiveStatus);
-// 🚀 THE NEW FAST-LANE IMAGE ROUTE
 router.patch('/image', protect, updateProfileImage);
 
-// Add this line BEFORE any routes that use /:id or /:slug so it doesn't get confused!
-// Get available time slots for a specific expert
-router.get('/user/:id/slots', protect, getExpertSlots);
-// Fetch anyone's profile by their User ID
-router.route('/user/:userId')
-  .get(protect, getProfileByUserId);
-
-  // Fetch by slug
+router.get('/user/:id/slots', getExpertSlots);
+router.route('/user/:userId').get(protect, getProfileByUserId);
 router.get('/slug/:slug', getProfileBySlug);
-// Add this at the top with your other imports
-
-  // Add this to profileRoutes.js
 router.get('/any/:id', protect, getProfileByAnyId);
-  
 
 module.exports = router;

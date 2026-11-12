@@ -4,37 +4,53 @@ const Profile = require('../models/Profile');
 const sendEmail = require('../utils/emailHelper');
 const sendPushNotification = require('../utils/pushHelper');
 const { ensureBookingVideoSession } = require('../utils/livekitHelper');
-
+const mongoose = require('mongoose');
 const DEFAULT_FLOOR_BY_DURATION = {
-  10: 10,
+  10: 10, // Kept at 10 so your ₹10 test sessions work seamlessly
   20: 299,
   30: 499,
   40: 599,
   60: 999,
 };
 
+const formatIST = (dateInput) => {
+  if (!dateInput) return 'TBD';
+  return new Date(dateInput).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
 /**
- * Checks whether `[startMs, endMs]` overlaps any active `holding` or `accepted` booking for the expert
+ * Checks whether `[startMs, endMs]` overlaps any already-accepted booking for the expert
  */
 const findOverlappingBooking = async (expertId, startMs, endMs, excludeRequestId = null) => {
   const windowLookback = new Date(startMs - 2 * 60 * 60 * 1000);
   const windowLookahead = new Date(endMs + 2 * 60 * 60 * 1000);
 
   const query = {
-    recipient: expertId,
-    status: { $in: ['holding', 'accepted'] },
+    recipient: new mongoose.Types.ObjectId(expertId),
+    status: 'accepted',
     scheduledAt: { $gte: windowLookback, $lte: windowLookahead },
   };
   if (excludeRequestId) {
-    query._id = { $ne: excludeRequestId };
+    query._id = { $ne: new mongoose.Types.ObjectId(excludeRequestId) };
   }
 
-  const candidates = await CallRequest.find(query)
-    .select('scheduledAt scheduledEndAt durationMinutes')
-    .lean();
+  const candidates = await CallRequest.collection.find(query).toArray();
+  const nowMs = Date.now();
 
   return candidates.find((item) => {
     const existingStartMs = new Date(item.scheduledAt).getTime();
+    if (existingStartMs < nowMs && item.paymentStatus !== 'paid') {
+      return false;
+    }
     const durMins = Number(item.durationMinutes) || 30;
     const existingEndMs = item.scheduledEndAt
       ? new Date(item.scheduledEndAt).getTime()
@@ -44,7 +60,7 @@ const findOverlappingBooking = async (expertId, startMs, endMs, excludeRequestId
 };
 
 // ==========================================
-// CASE 1: USER A SENDS CUSTOM REQUEST TO EXPERT B
+// CASE 1: CUSTOM OPEN REQUEST
 // ==========================================
 exports.createCallRequest = async (req, res, next) => {
   try {
@@ -71,8 +87,119 @@ exports.createCallRequest = async (req, res, next) => {
     await sendPushNotification(
       recipientId,
       'New Mentorship Request! 🚀',
-      `Someone wants to book a ${validDuration}-min session with you for "${topic}". Check your bookings!`
+      `Someone wants to book a ${validDuration}-min session with you for "${topic}". Tap Bookings to review!`
     );
+
+    res.status(201).json({ success: true, data: callRequest });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// 🚀 CASE 2: STUDENT REQUESTS A SPECIFIC SLOT & PACKAGE (APPROVAL-FIRST)
+// @route POST /api/v1/requests/instant-hold
+// ==========================================
+exports.createInstantHold = async (req, res, next) => {
+  try {
+    const { recipientId, topic, message, scheduledAt, durationMinutes } = req.body;
+
+    if (req.user.id === recipientId) {
+      return res.status(400).json({ success: false, error: 'Cannot book yourself.' });
+    }
+
+    const expertProfile = await Profile.findOne({ user: recipientId });
+    if (!expertProfile) {
+      return res.status(404).json({ success: false, error: 'Mentor profile not found.' });
+    }
+
+    const requestedDuration = [10, 20, 30, 40, 60].includes(Number(durationMinutes))
+      ? Number(durationMinutes)
+      : Number(expertProfile.scheduleRules?.sessionDuration) || 30;
+
+    const minFloor = DEFAULT_FLOOR_BY_DURATION[requestedDuration] || 199;
+    let amount = minFloor;
+
+    if (Array.isArray(expertProfile.sessionPricing) && expertProfile.sessionPricing.length > 0) {
+      const tier = expertProfile.sessionPricing.find(
+        (t) => Number(t.duration) === requestedDuration
+      );
+      if (tier) {
+        if (tier.isEnabled === false) {
+          return res.status(400).json({
+            success: false,
+            error: `This mentor does not currently offer ${requestedDuration}-minute sessions.`,
+          });
+        }
+        amount = Math.max(minFloor, Number(tier.price) || minFloor);
+      }
+    } else if (requestedDuration === 30 && Number(expertProfile.hourlyRate) >= minFloor) {
+      amount = Number(expertProfile.hourlyRate);
+    }
+
+    const slotStartMs = new Date(scheduledAt).getTime();
+    if (Number.isNaN(slotStartMs)) {
+      return res.status(400).json({ success: false, error: 'Invalid slot timestamp.' });
+    }
+
+    if (slotStartMs < Date.now() + 5 * 60 * 1000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please select a time slot at least 10 minutes in the future.',
+      });
+    }
+
+    const slotEndMs = slotStartMs + requestedDuration * 60 * 1000;
+
+    // Check if the mentor already approved another session in this time window
+    const overlappingRequest = await findOverlappingBooking(recipientId, slotStartMs, slotEndMs);
+    if (overlappingRequest) {
+      return res.status(409).json({
+        success: false,
+        error: 'This time slot is already booked! Please pick another time.',
+      });
+    }
+
+    // Create the booking in 'pending' status (Wait for Mentor Approval before payment!)
+    const callRequest = new CallRequest({
+      requester: req.user.id,
+      recipient: recipientId,
+      topic: topic.trim(),
+      message: message ? message.trim() : '',
+      amount,
+      durationMinutes: requestedDuration,
+      scheduledAt: new Date(slotStartMs),
+      scheduledEndAt: new Date(slotEndMs),
+      status: 'pending',
+      paymentStatus: 'pending',
+      expiresAt: undefined,
+    });
+
+    ensureBookingVideoSession(callRequest);
+    await callRequest.save();
+
+    const populated = await CallRequest.findById(callRequest._id)
+      .populate('requester', 'name email')
+      .populate('recipient', 'name email');
+
+    // Notify the Mentor immediately via Push + Email
+    try {
+      const istString = formatIST(slotStartMs);
+      await Promise.all([
+        sendPushNotification(
+          recipientId,
+          '📩 New Session Request!',
+          `${populated.requester.name} requested a ${requestedDuration}m call (₹${amount}) on ${istString}. Tap to Accept or Decline!`
+        ),
+        sendEmail({
+          email: populated.recipient.email,
+          subject: `📩 New Booking Request from ${populated.requester.name}`,
+          message: `Hi ${populated.recipient.name},\n\n${populated.requester.name} has requested a 1:1 mentorship session with you!\n\nDetails:\n- Topic: ${populated.topic}\n- Message: ${populated.message || 'N/A'}\n- Package: ${requestedDuration} Minutes (₹${amount})\n- Requested Time: ${istString} (IST)\n\nPlease open the YB Connect app -> Go to the "Bookings" tab -> Tap "Accept Request" or "Decline". Once you accept, the student will complete payment to lock the call.\n\nThank you,\nYour YB Connect Team`,
+        }),
+      ]);
+    } catch (notifyErr) {
+      console.error('Failed to send new request notification:', notifyErr.message);
+    }
 
     res.status(201).json({ success: true, data: callRequest });
   } catch (error) {
@@ -88,18 +215,19 @@ exports.getRequests = async (req, res, next) => {
     let requests = await CallRequest.find({
       $or: [{ requester: req.user.id }, { recipient: req.user.id }],
     })
-      .populate('requester', 'name email slug profileImage')
-      .populate('recipient', 'name email slug profileImage')
+     // Inside exports.getRequests:
+.populate('requester', 'name slug profileImage')
+.populate('recipient', 'name slug profileImage')
+
+
       .sort({ createdAt: -1 })
       .lean();
 
     requests = requests.map((reqData) => {
-      // Normalize legacy review location if stored inside zoomMeeting
       if (reqData.zoomMeeting && reqData.zoomMeeting.review && !reqData.review) {
         reqData.review = reqData.zoomMeeting.review;
       }
 
-      // Gatekeeper: Hide room links from unpaid students
       const isRequester = reqData.requester?._id?.toString() === req.user.id;
       const isPaid = ['paid', 'payout_ready', 'payout_processing'].includes(reqData.paymentStatus);
 
@@ -121,20 +249,28 @@ exports.getRequests = async (req, res, next) => {
   }
 };
 
-// ==========================================
-// UPDATE STATUS (OFFER / ACCEPT / CANCEL)
-// ==========================================
+// =========================================================================
+// 🚀 UPDATE STATUS (MENTOR ACCEPT / REJECT / 1-HR EMERGENCY CANCEL / STUDENT CANCEL)
+// @route PUT /api/v1/requests/:id/status
+// =========================================================================
 exports.updateRequestStatus = async (req, res, next) => {
   try {
-    const { status, scheduledAt, amount, proposedSlots, durationMinutes } = req.body;
-    let callRequest = await CallRequest.findById(req.params.id);
+    const {
+      status,
+      scheduledAt,
+      amount,
+      proposedSlots,
+      durationMinutes,
+      cancelReason,
+    } = req.body;
 
+    let callRequest = await CallRequest.findById(req.params.id);
     if (!callRequest) {
-      return res.status(404).json({ success: false, error: 'Request not found' });
+      return res.status(404).json({ success: false, error: 'Booking request not found.' });
     }
 
-    const isRecipient = callRequest.recipient.toString() === req.user.id;
-    const isRequester = callRequest.requester.toString() === req.user.id;
+    const isRecipient = callRequest.recipient.toString() === req.user.id; // Mentor / Expert
+    const isRequester = callRequest.requester.toString() === req.user.id; // Student
 
     if (!isRecipient && !isRequester) {
       return res.status(403).json({ success: false, error: 'Unauthorized' });
@@ -143,107 +279,166 @@ exports.updateRequestStatus = async (req, res, next) => {
     if (['completed', 'rejected', 'cancelled'].includes(callRequest.status)) {
       return res.status(400).json({
         success: false,
-        error: `This request is already ${callRequest.status}.`,
+        error: `This booking is already ${callRequest.status}.`,
       });
     }
 
-    // EXPERT MAKES AN OFFER
-    if (isRecipient && status === 'offer_made') {
-      if (!amount || !proposedSlots || proposedSlots.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'You must provide a price and at least one proposed time slot to make an offer.',
-        });
+    let notificationAction = null; // Tracks which email/push notification to fire after save
+
+    // ====================================================================
+    // 1. MENTOR (EXPERT) ACTIONS
+    // ====================================================================
+    if (isRecipient) {
+      // CASE 1A: Mentor Accepts a Direct Slot Request ('pending' -> 'accepted')
+      if (status === 'accepted') {
+        if (!callRequest.scheduledAt) {
+          return res.status(400).json({
+            success: false,
+            error: 'No scheduled time found on this request. Please propose a time slot instead.',
+          });
+        }
+
+        const startMs = new Date(callRequest.scheduledAt).getTime();
+        const durMins = Number(callRequest.durationMinutes) || 30;
+        const endMs = startMs + durMins * 60 * 1000;
+
+        if (startMs <= Date.now()) {
+          return res.status(400).json({
+            success: false,
+            error: 'The requested time slot has already passed.',
+          });
+        }
+
+        const conflict = await findOverlappingBooking(
+          callRequest.recipient,
+          startMs,
+          endMs,
+          callRequest._id
+        );
+        if (conflict) {
+          return res.status(409).json({
+            success: false,
+            error: 'You already have another accepted session during this time window.',
+          });
+        }
+
+        callRequest.status = 'accepted';
+        callRequest.expertApprovedAt = new Date();
+        callRequest.expiresAt = undefined;
+        ensureBookingVideoSession(callRequest);
+        notificationAction = 'mentor_accepted';
       }
 
-      if (!Array.isArray(proposedSlots) || proposedSlots.length === 0 || proposedSlots.length > 3) {
-        return res.status(400).json({
-          success: false,
-          error: 'Please provide between 1 and 3 proposed time slots.',
-        });
+      // CASE 1B: Mentor Rejects / Declines an Unpaid Request
+      else if (status === 'rejected') {
+        if (callRequest.paymentStatus === 'paid') {
+          return res.status(400).json({
+            success: false,
+            error: 'This session is already paid. Use Emergency Cancel instead.',
+          });
+        }
+        callRequest.status = 'rejected';
+        callRequest.cancelledBy = 'expert';
+        callRequest.cancelReason = cancelReason ? cancelReason.trim() : 'Declined by mentor';
+        callRequest.cancelledAt = new Date();
+        notificationAction = 'mentor_rejected';
       }
 
-      const validDuration = [10, 20, 30, 40, 60].includes(Number(durationMinutes))
-        ? Number(durationMinutes)
-        : Number(callRequest.durationMinutes) || 30;
+      // CASE 1C: Mentor Emergency Cancellation (Allowed up to 1 Hour Before scheduledAt!)
+      else if (status === 'cancelled') {
+        const startMs = callRequest.scheduledAt
+          ? new Date(callRequest.scheduledAt).getTime()
+          : 0;
+        const oneHourMs = 60 * 60 * 1000;
 
-      const minFloor = DEFAULT_FLOOR_BY_DURATION[validDuration] || 10;
-      if (Number(amount) < minFloor) {
-        return res.status(400).json({
-          success: false,
-          error: `Minimum allowed fee for a ${validDuration}-minute session is ₹${minFloor}.`,
-        });
+        // Enforce 1-hour cutoff strictly for paid confirmed sessions
+        if (callRequest.paymentStatus === 'paid' && startMs > 0) {
+          const timeRemainingMs = startMs - Date.now();
+          if (timeRemainingMs < oneHourMs) {
+            return res.status(400).json({
+              success: false,
+              error:
+                'Emergency cancellations are locked within 1 hour of the session start time.',
+            });
+          }
+        }
+
+        const wasPaid = callRequest.paymentStatus === 'paid';
+
+        callRequest.status = 'cancelled';
+        callRequest.cancelledBy = 'expert';
+        callRequest.cancelReason =
+          cancelReason && cancelReason.trim() !== ''
+            ? cancelReason.trim()
+            : 'Emergency cancellation by mentor';
+        callRequest.cancelledAt = new Date();
+
+        // If the student had already paid, route 100% of funds to Student's Refund Wallet!
+        if (wasPaid) {
+          callRequest.paymentStatus = 'failed';
+          ensureBookingVideoSession(callRequest);
+          callRequest.videoSession.status = 'expert_no_show';
+          callRequest.videoSession.completionReason = 'expert_emergency_cancelled';
+          callRequest.zoomMeeting.status = 'expert_no_show';
+          callRequest.markModified('videoSession');
+          callRequest.markModified('zoomMeeting');
+          notificationAction = 'mentor_cancelled_paid';
+        } else {
+          notificationAction = 'mentor_cancelled_unpaid';
+        }
       }
 
-      const now = Date.now();
-      const parsedSlots = proposedSlots.map((slot) => new Date(slot));
+      // CASE 1D: Mentor Sends a Custom Time/Price Offer (Negotiation fallback)
+      else if (status === 'offer_made') {
+        if (!amount || !proposedSlots || proposedSlots.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Please provide a session fee and at least one time slot.',
+          });
+        }
 
-      if (parsedSlots.some((date) => Number.isNaN(date.getTime()))) {
-        return res.status(400).json({
-          success: false,
-          error: 'One or more proposed time slots are invalid.',
-        });
+        const validDuration = [10, 20, 30, 40, 60].includes(Number(durationMinutes))
+          ? Number(durationMinutes)
+          : Number(callRequest.durationMinutes) || 30;
+
+        const minFloor = DEFAULT_FLOOR_BY_DURATION[validDuration] || 10;
+        if (Number(amount) < minFloor) {
+          return res.status(400).json({
+            success: false,
+            error: `Minimum allowed fee for a ${validDuration}-minute session is ₹${minFloor}.`,
+          });
+        }
+
+        callRequest.amount = Math.round(Number(amount));
+        callRequest.durationMinutes = validDuration;
+        callRequest.proposedSlots = proposedSlots;
+        callRequest.status = 'offer_made';
+        notificationAction = 'mentor_offer_made';
+      } else {
+        return res.status(400).json({ success: false, error: 'Invalid mentor status update.' });
       }
-
-      if (parsedSlots.some((date) => date.getTime() <= now)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Proposed time slots must be in the future.',
-        });
-      }
-
-      const uniqueSlotTimes = new Set(parsedSlots.map((date) => date.getTime()));
-      if (uniqueSlotTimes.size !== parsedSlots.length) {
-        return res.status(400).json({
-          success: false,
-          error: 'Proposed time slots cannot contain duplicates.',
-        });
-      }
-
-      callRequest.amount = Math.round(Number(amount));
-      callRequest.durationMinutes = validDuration;
-      callRequest.proposedSlots = proposedSlots;
-      callRequest.status = 'offer_made';
-    } else if (isRecipient && status === 'rejected') {
-      callRequest.status = 'rejected';
     }
 
-    // STUDENT ACCEPTS OFFER OR CANCELS
-    if (isRequester) {
+    // ====================================================================
+    // 2. STUDENT (REQUESTER) ACTIONS
+    // ====================================================================
+    else if (isRequester) {
+      // CASE 2A: Student Accepts a Custom Offer from Mentor
       if (status === 'accepted') {
         if (callRequest.status !== 'offer_made') {
           return res.status(400).json({
             success: false,
-            error: 'You cannot accept a session that has not been offered yet.',
+            error: 'This request is awaiting mentor approval first.',
           });
         }
         if (!scheduledAt) {
           return res.status(400).json({
             success: false,
-            error: 'You must select one of the proposed time slots to confirm the session.',
+            error: 'Please select one of the proposed time slots.',
           });
         }
 
         const selectedTimeMs = new Date(scheduledAt).getTime();
-        const isValidProposedSlot = callRequest.proposedSlots.some(
-          (slot) => new Date(slot).getTime() === selectedTimeMs
-        );
-
-        if (!isValidProposedSlot) {
-          return res.status(400).json({
-            success: false,
-            error: 'Invalid time slot. Please select one of the time slots proposed by the expert.',
-          });
-        }
-
-        const tenMinsFromNowMs = Date.now() + 10 * 60 * 1000;
-        if (selectedTimeMs < tenMinsFromNowMs) {
-          return res.status(400).json({
-            success: false,
-            error: 'The selected time slot is too soon. Please select a time at least 10 minutes from now.',
-          });
-        }
-
         const durMins = Number(callRequest.durationMinutes) || 30;
         const endTimeMs = selectedTimeMs + durMins * 60 * 1000;
 
@@ -256,26 +451,33 @@ exports.updateRequestStatus = async (req, res, next) => {
         if (conflict) {
           return res.status(409).json({
             success: false,
-            error: 'This time slot now overlaps with another confirmed booking. Please request a new time.',
+            error: 'This time slot overlaps with another confirmed booking.',
           });
         }
 
         callRequest.scheduledAt = new Date(selectedTimeMs);
         callRequest.scheduledEndAt = new Date(endTimeMs);
         callRequest.status = 'accepted';
+        callRequest.expertApprovedAt = new Date();
         ensureBookingVideoSession(callRequest);
-      } else if (status === 'cancelled') {
+      }
+
+      // CASE 2B: Student Withdraws an Unpaid Request
+      else if (status === 'cancelled') {
         if (callRequest.paymentStatus === 'paid') {
           return res.status(400).json({
             success: false,
-            error: 'Cannot cancel a session that is already paid.',
+            error: 'Paid sessions cannot be cancelled by the student.',
           });
         }
         callRequest.status = 'cancelled';
+        callRequest.cancelledBy = 'student';
+        callRequest.cancelReason = cancelReason ? cancelReason.trim() : 'Withdrawn by student';
+        callRequest.cancelledAt = new Date();
       } else {
         return res.status(403).json({
           success: false,
-          error: 'Students can only accept offers or cancel requests.',
+          error: 'Students can only withdraw unpaid requests or accept custom offers.',
         });
       }
     }
@@ -283,126 +485,83 @@ exports.updateRequestStatus = async (req, res, next) => {
     await callRequest.save();
 
     callRequest = await CallRequest.findById(req.params.id)
-      .populate('requester', 'name email')
-      .populate('recipient', 'name email');
+      .populate('requester', 'name email slug profileImage')
+      .populate('recipient', 'name email slug profileImage');
 
-    if (callRequest.status === 'offer_made') {
-      try {
-        const student = callRequest.requester;
-        const expert = callRequest.recipient;
+    // ====================================================================
+    // 3. DISPATCH REAL-TIME PUSH + EMAIL NOTIFICATIONS
+    // ====================================================================
+    try {
+      const student = callRequest.requester;
+      const expert = callRequest.recipient;
+      const istTime = formatIST(callRequest.scheduledAt);
+      const dur = callRequest.durationMinutes || 30;
 
-        await sendEmail({
-          email: student.email,
-          subject: `🔔 Action Required: ${expert.name} sent you an offer!`,
-          message: `Hi ${student.name.split(' ')[0]},\n\nGood news! ${expert.name} has reviewed your mentorship request and made you an offer for ₹${callRequest.amount} (${callRequest.durationMinutes || 30} mins).\n\nThey have proposed available time slots for the session. Please open the YB Connect app, go to your Bookings tab, and tap "Review & Book" to pick your preferred time and complete payment.\n\nThank you,\nYour YB Connect Team`,
-        });
-
+      if (notificationAction === 'mentor_accepted') {
+        await Promise.all([
+          sendPushNotification(
+            student._id,
+            '✅ Request Accepted! Complete Payment',
+            `${expert.name} accepted your ${dur}m session for ${istTime}. Tap Bookings to pay ₹${callRequest.amount} and confirm!`
+          ),
+          sendEmail({
+            email: student.email,
+            subject: `✅ ${expert.name} Accepted Your Session Request!`,
+            message: `Hi ${student.name.split(' ')[0]},\n\nGreat news! ${expert.name} has accepted your request for a ${dur}-minute 1:1 session ("${callRequest.topic}").\n\nScheduled Time: ${istTime} (IST)\nSession Fee: ₹${callRequest.amount}\n\n👉 Next Step: Open the YB Connect app -> Go to the "Bookings" tab -> Tap "Pay ₹${callRequest.amount} to Confirm" to lock in your video call.\n\nThank you,\nYour YB Connect Team`,
+          }),
+        ]);
+      } else if (notificationAction === 'mentor_rejected') {
+        await Promise.all([
+          sendPushNotification(
+            student._id,
+            'Session Request Declined',
+            `${expert.name} is unavailable for "${callRequest.topic}" at that time. No payment was charged.`
+          ),
+          sendEmail({
+            email: student.email,
+            subject: `Update on your session request with ${expert.name}`,
+            message: `Hi ${student.name.split(' ')[0]},\n\n${expert.name} was unable to accept your session request for "${callRequest.topic}" (${istTime}).\nReason: ${callRequest.cancelReason}\n\nNo payment was charged. You are welcome to request another available slot or explore other mentors on YB Connect.\n\nThank you,\nYour YB Connect Team`,
+          }),
+        ]);
+      } else if (notificationAction === 'mentor_cancelled_paid') {
+        await Promise.all([
+          sendPushNotification(
+            student._id,
+            '⚠️ Session Cancelled • 100% Refund Credited',
+            `${expert.name} had an emergency and cancelled the session on ${istTime}. ₹${callRequest.amount} is now in your Refund Wallet.`
+          ),
+          sendEmail({
+            email: student.email,
+            subject: `⚠️ Session Cancelled by ${expert.name} - 100% Refund Credited`,
+            message: `Hi ${student.name.split(' ')[0]},\n\nUnfortunately, ${expert.name} had to cancel your upcoming session ("${callRequest.topic}") scheduled for ${istTime} (IST).\n\nReason from Mentor: "${callRequest.cancelReason}"\n\n💰 100% Refund Issued: Your full payment of ₹${callRequest.amount} has been automatically credited to your YB Connect Refund Wallet. You can withdraw it directly from your Dashboard in the app.\n\nWe apologize for the inconvenience.\nYour YB Connect Team`,
+          }),
+        ]);
+      } else if (notificationAction === 'mentor_cancelled_unpaid') {
         await sendPushNotification(
           student._id,
-          'Offer Received! 🔔',
-          `${expert.name} sent you an offer of ₹${callRequest.amount} (${callRequest.durationMinutes || 30}m). Tap to review and pick a slot!`
+          'Session Cancelled by Mentor',
+          `${expert.name} cancelled the unpaid session for "${callRequest.topic}".`
         );
-      } catch (err) {
-        console.error('⚠️ Failed to send offer notifications:', err.message);
+      } else if (notificationAction === 'mentor_offer_made') {
+        await Promise.all([
+          sendPushNotification(
+            student._id,
+            'Offer Received! 🔔',
+            `${expert.name} sent you an offer of ₹${callRequest.amount} (${dur}m). Tap to review and pick a slot!`
+          ),
+          sendEmail({
+            email: student.email,
+            subject: `🔔 Action Required: ${expert.name} sent you an offer!`,
+            message: `Hi ${student.name.split(' ')[0]},\n\n${expert.name} reviewed your request and proposed time slots for ₹${callRequest.amount} (${dur} mins).\n\nOpen the YB Connect app -> Go to "Bookings" to select a time and pay.\n\nThank you,\nYour YB Connect Team`,
+          }),
+        ]);
       }
+    } catch (notifyErr) {
+      console.error('⚠️ Notification dispatch warning:', notifyErr.message);
     }
 
     res.status(200).json({ success: true, data: callRequest });
   } catch (error) {
-    next(error);
-  }
-};
-
-// ==========================================
-// 🚀 INSTANT BOOKING 10-MINUTE CART LOCK
-// ==========================================
-exports.createInstantHold = async (req, res, next) => {
-  try {
-    const { recipientId, topic, message, scheduledAt, durationMinutes } = req.body;
-
-    if (req.user.id === recipientId) {
-      return res.status(400).json({ success: false, error: 'Cannot book yourself.' });
-    }
-
-    const expertProfile = await Profile.findOne({ user: recipientId });
-    if (!expertProfile) {
-      return res.status(404).json({ success: false, error: 'Expert not found.' });
-    }
-
-    const requestedDuration = [10, 20, 30, 40, 60].includes(Number(durationMinutes))
-      ? Number(durationMinutes)
-      : Number(expertProfile.scheduleRules?.sessionDuration) || 30;
-
-    // Look up the authoritative price from the expert's 5-tier sessionPricing
-    const minFloor = DEFAULT_FLOOR_BY_DURATION[requestedDuration] || 499;
-    let amount = minFloor;
-
-    if (Array.isArray(expertProfile.sessionPricing) && expertProfile.sessionPricing.length > 0) {
-      const tier = expertProfile.sessionPricing.find(
-        (t) => Number(t.duration) === requestedDuration
-      );
-      if (tier) {
-        if (tier.isEnabled === false) {
-          return res.status(400).json({
-            success: false,
-            error: `The expert does not currently offer ${requestedDuration}-minute sessions.`,
-          });
-        }
-        amount = Math.max(minFloor, Number(tier.price) || minFloor);
-      }
-    } else if (requestedDuration === 30 && Number(expertProfile.hourlyRate) >= minFloor) {
-      amount = Number(expertProfile.hourlyRate);
-    }
-
-    const slotStartMs = new Date(scheduledAt).getTime();
-    if (Number.isNaN(slotStartMs)) {
-      return res.status(400).json({ success: false, error: 'Invalid slot timestamp.' });
-    }
-
-    if (slotStartMs < Date.now() + 5 * 60 * 1000) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please select a slot at least 10 minutes in the future.',
-      });
-    }
-
-    const slotEndMs = slotStartMs + requestedDuration * 60 * 1000;
-
-    // Range-based double-booking check
-    const overlappingRequest = await findOverlappingBooking(recipientId, slotStartMs, slotEndMs);
-    if (overlappingRequest) {
-      return res.status(409).json({
-        success: false,
-        error: 'Someone else just reserved this time window! Please pick another slot.',
-      });
-    }
-
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    const callRequest = new CallRequest({
-      requester: req.user.id,
-      recipient: recipientId,
-      topic: topic.trim(),
-      message: message ? message.trim() : '',
-      amount,
-      durationMinutes: requestedDuration,
-      scheduledAt: new Date(slotStartMs),
-      scheduledEndAt: new Date(slotEndMs),
-      status: 'holding',
-      expiresAt,
-    });
-
-    ensureBookingVideoSession(callRequest);
-    await callRequest.save();
-
-    res.status(201).json({ success: true, data: callRequest });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        error: 'Someone else just reserved this exact slot! Please pick another time.',
-      });
-    }
     next(error);
   }
 };
@@ -429,7 +588,6 @@ exports.submitReview = async (req, res, next) => {
       });
     }
 
-    // Prevent reviewing sessions where the student never showed up
     if (
       request.videoSession?.status === 'student_no_show' ||
       request.zoomMeeting?.status === 'student_no_show'
@@ -463,30 +621,52 @@ exports.submitReview = async (req, res, next) => {
   }
 };
 
-// @desc    Get all reviews for a specific expert
-// @route   GET /api/v1/requests/expert/:expertId/reviews
 exports.getExpertReviews = async (req, res, next) => {
   try {
     const { expertId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(expertId)) {
+      return res.status(400).json({ success: false, error: 'Invalid expert ID' });
+    }
 
-    let reviews = await CallRequest.find({
-      recipient: expertId,
+    const rawReviews = await CallRequest.collection.find({
+      recipient: new mongoose.Types.ObjectId(expertId),
       status: 'completed',
       $or: [
         { 'review.rating': { $exists: true } },
         { 'zoomMeeting.review.rating': { $exists: true } },
       ],
-    })
-      .populate('requester', 'name email slug profileImage')
-      .sort({ 'review.submittedAt': -1, 'zoomMeeting.review.submittedAt': -1 })
-      .lean();
+    }).toArray();
 
-    reviews = reviews.map((reqItem) => {
-      if (reqItem.zoomMeeting && reqItem.zoomMeeting.review && !reqItem.review) {
-        reqItem.review = reqItem.zoomMeeting.review;
-      }
-      return reqItem;
-    });
+    const User = require('../models/User');
+    const Profile = require('../models/Profile');
+    let reviews = await Promise.all(
+      rawReviews.map(async (item) => {
+        const reqUser = await User.findById(item.requester).select('name slug').lean();
+        const reqProfile = await Profile.findOne({ user: item.requester }).select('profileImage').lean();
+        return {
+          ...item,
+          requester: {
+            _id: item.requester,
+            name: reqUser?.name || 'User',
+            slug: reqUser?.slug || '',
+            profileImage: reqProfile?.profileImage || 'default-avatar.png',
+          },
+        };
+      })
+    );
+
+    reviews = reviews
+      .map((reqItem) => {
+        if (reqItem.zoomMeeting && reqItem.zoomMeeting.review && !reqItem.review) {
+          reqItem.review = reqItem.zoomMeeting.review;
+        }
+        return reqItem;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.review?.submittedAt || a.zoomMeeting?.review?.submittedAt || 0).getTime();
+        const dateB = new Date(b.review?.submittedAt || b.zoomMeeting?.review?.submittedAt || 0).getTime();
+        return dateB - dateA;
+      });
 
     let totalRating = 0;
     let averageRating = 0;

@@ -1,81 +1,80 @@
+// backend/src/controllers/expertController.js
 const Profile = require('../models/Profile');
 
-exports.getExperts = async (req, res, next) => {
-  try {
-    const page = parseInt(req.query.page, 10) || 1;
-    
-    // 🚨 SECURITY FIX: Hard cap the limit to a maximum of 50 per request to prevent DoS attacks
-    let requestedLimit = parseInt(req.query.limit, 10) || 20;
-    const limit = Math.min(requestedLimit, 50); 
-    
-    const startIndex = (page - 1) * limit;
+const escapeRegex = (str) => {
+  if (typeof str !== 'string') return '';
+  return str.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
 
-    const query = { user: { $ne: req.user._id } };
-    
-    if (req.query.skill) {
-      query.skills = { $regex: req.query.skill, $options: 'i' };
+const SENSITIVE_PROFILE_EXCLUSIONS =
+  '-accountNumber -ifscCode -razorpayAccountId -phoneNumber -zoomCredentials -mentorApplication';
+
+// Inside backend/src/controllers/expertController.js
+
+exports.getExperts = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const currentUserId = req.user ? req.user._id : null;
+
+    // Use native collection query to bypass Mongoose casting errors
+    const query = { role: 'expert' };
+    if (currentUserId) {
+      const { ObjectId } = require('mongoose').Types;
+      try {
+        query.user = { $ne: new ObjectId(String(currentUserId)) };
+      } catch (e) {}
     }
 
-    const total = await Profile.countDocuments(query);
-    
-    const experts = await Profile.find(query)
-      .populate({
-        path: 'user',
-        // 🚨 SECURITY FIX: Removed 'email' to prevent massive data leakage
-        select: 'name profileImage isDeleted accountStatus',
-        match: { 
-          isDeleted: { $ne: true }, 
-          accountStatus: { $ne: 'deleted' } 
-        }
-      })
-      .skip(startIndex)
-      .limit(limit);
+    const rawProfiles = await Profile.collection
+      .find(query)
+      .skip(skip)
+      .limit(limit)
+      .toArray();
 
-    const validExperts = experts.filter(exp => exp.user != null);
-   
-    res.status(200).json({
-      success: true,
-      count: validExperts.length,
-      pagination: { total, page, pages: Math.ceil(total / limit) },
-      data: validExperts
-    });
+    // Populate user details manually for safety
+    const User = require('../models/User');
+    const profiles = await Promise.all(
+      rawProfiles.map(async (p) => {
+        const u = await User.findById(p.user).select('name email phoneNumber isDeleted').lean();
+        return { ...p, user: u };
+      })
+    );
+
+    res.status(200).json({ success: true, data: profiles });
   } catch (error) {
-    console.error("❌ ERROR in getExperts:", error);
-    next(error);
+    console.error('❌ ERROR in getExperts:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
-// @desc   Get All Live Experts (Instant Solver Screen)
-// @route  GET /api/v1/experts/live
-exports.getLiveExperts = async (req, res, next) => {
+exports.getLiveExperts = async (req, res) => {
   try {
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const currentUserId = req.user ? req.user._id : null;
 
-    const liveExperts = await Profile.find({
-      isLive: true,
-      liveConnectionStatus: 'available',
-      lastActiveAt: { $gte: fifteenMinutesAgo },
-      user: { $ne: req.user._id } 
-    })
-    .populate({
-      path: 'user',
-      // 🚨 SECURITY FIX: Removed 'email' to prevent massive data leakage
-      select: 'name profileImage isDeleted accountStatus',
-      match: { 
-        isDeleted: { $ne: true }, 
-        accountStatus: { $ne: 'deleted' } 
-      }
-    });
+    const query = { role: 'expert', isLive: true };
+    if (currentUserId) {
+      const { ObjectId } = require('mongoose').Types;
+      try {
+        query.user = { $ne: new ObjectId(String(currentUserId)) };
+      } catch (e) {}
+    }
 
-    const validLiveExperts = liveExperts.filter(exp => exp.user != null);
+    const rawProfiles = await Profile.collection.find(query).toArray();
 
-    res.status(200).json({ 
-      success: true, 
-      count: validLiveExperts.length,
-      data: validLiveExperts 
-    });
+    const User = require('../models/User');
+    const profiles = await Promise.all(
+      rawProfiles.map(async (p) => {
+        const u = await User.findById(p.user).select('name email phoneNumber isDeleted').lean();
+        return { ...p, user: u };
+      })
+    );
+
+    res.status(200).json({ success: true, data: profiles });
   } catch (error) {
-    console.error("❌ ERROR in getLiveExperts:", error);
-    next(error);
+    console.error('❌ ERROR in getLiveExperts:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };

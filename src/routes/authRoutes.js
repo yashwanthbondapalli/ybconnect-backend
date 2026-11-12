@@ -1,61 +1,64 @@
+// backend/src/routes/authRoutes.js
 const express = require('express');
-const rateLimit = require('express-rate-limit'); // <-- 1. Import the library
-const { 
-  registerUser, 
-  loginUser, 
-  updatePushToken, 
-  updateProfile, 
+const rateLimit = require('express-rate-limit');
+const {
+  registerUser,
+  loginUser,
+  refreshToken,
+  updatePushToken,
+  updateProfile,
   updatePassword,
   sendEmailOtp,
-  getMe ,// <-- 1. Add this import
+  getMe,
   updateUserEmail,
   resetPasswordWithOtp,
   sendPasswordResetOtp,
-  deleteAccount // <-- ADD THIS
+  deleteAccount,
 } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 
-const { refreshToken } = require('../controllers/authController');
-
-
 const router = express.Router();
 
-// --- ENTERPRISE FIX START (Issue 8) ---
-// Define a strict limiter: Maximum 5 attempts every 15 minutes per IP address
+// 1. Login & Token Refresh Limiter (15 requests per 10 minutes per IP)
 const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 30, // Limit each IP to 5 requests per window
-  message: { 
-    success: false, 
-    error: 'Too many authentication attempts from this IP, please try again after 5 minutes.' 
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  message: {
+    success: false,
+    error: 'Too many authentication attempts. Please try again after 10 minutes.',
   },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false,  // Disable the `X-RateLimit-*` headers
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-// --- ENTERPRISE FIX END ---
 
-// 2. Inject the middleware directly into the sensitive routes
-router.post('/register', authLimiter, registerUser);
+// 2. Strict OTP Dispatch & Verification Limiter (Max 5 attempts per 15 minutes per IP)
+const otpStrictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    success: false,
+    error: 'Too many OTP requests or failed attempts. Please wait 15 minutes before trying again.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Public Auth Routes
 router.post('/login', authLimiter, loginUser);
+router.post('/refresh-token', authLimiter, refreshToken);
+router.post('/register', otpStrictLimiter, registerUser);
 
+// Public OTP Routes (Strictly Rate-Limited)
+router.post('/send-otp', otpStrictLimiter, sendEmailOtp);
+router.post('/send-reset-otp', otpStrictLimiter, sendPasswordResetOtp);
+router.post('/reset-password-otp', otpStrictLimiter, resetPasswordWithOtp);
+
+// Protected Authenticated Routes
 router.get('/me', protect, getMe);
-router.post('/refresh-token', refreshToken);
-
-// Push token route
 router.post('/push-token', protect, updatePushToken);
-
-// Settings routes
 router.put('/update-profile', protect, updateProfile);
-router.put('/update-password', protect, updatePassword);
-
-router.put('/update-email', protect, updateUserEmail);
-// Add the route (Usually near your other OTP routes)
-// In authRoutes.js
-router.post('/send-otp', authLimiter, sendEmailOtp);
-router.post('/send-reset-otp', authLimiter, sendPasswordResetOtp);
-router.post('/reset-password-otp', authLimiter, resetPasswordWithOtp);
-
-// Danger Zone
+router.put('/update-password', protect, authLimiter, updatePassword);
+router.put('/update-email', protect, otpStrictLimiter, updateUserEmail);
 router.delete('/delete-account', protect, deleteAccount);
 
 module.exports = router;
