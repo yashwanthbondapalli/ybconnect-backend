@@ -12,6 +12,7 @@ const {
   getExpertSlots,
   submitMentorApplication,
   reviewMentorApplication,
+  submitSupportTicket,
 } = require('../controllers/profileController');
 
 const { protect, adminOnly } = require('../middlewares/authMiddleware');
@@ -36,5 +37,7 @@ router.get('/user/:id/slots', getExpertSlots);
 router.route('/user/:userId').get(protect, getProfileByUserId);
 router.get('/slug/:slug', getProfileBySlug);
 router.get('/any/:id', protect, getProfileByAnyId);
+
+router.post('/support-ticket', protect, submitSupportTicket);
 
 module.exports = router;

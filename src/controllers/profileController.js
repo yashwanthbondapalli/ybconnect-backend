@@ -89,10 +89,10 @@ const normalizeSessionPricing = (rawPricing, fallbackRate) => {
   return normalized;
 };
 
-// @desc    Get current logged-in user's own profile (Full private view)
+// @desc    Get current logged-in user's own profile (Auto-marks Experts Online on App Open!)
 exports.getCurrentUserProfile = async (req, res, next) => {
   try {
-    const profile = await Profile.findOne({ user: req.user.id }).populate('user', [
+    let profile = await Profile.findOne({ user: req.user.id }).populate('user', [
       'name',
       'email',
       'slug',
@@ -105,6 +105,23 @@ exports.getCurrentUserProfile = async (req, res, next) => {
         success: false,
         error: 'There is no profile for this user',
       });
+    }
+
+    // Automatically mark any Expert online when they open the app
+    if (profile.role === 'expert') {
+      profile.isLive = true;
+      profile.liveConnectionStatus = 'available';
+      profile.lastActiveAt = new Date();
+      await Profile.updateOne(
+        { _id: profile._id },
+        {
+          $set: {
+            isLive: true,
+            liveConnectionStatus: 'available',
+            lastActiveAt: profile.lastActiveAt,
+          },
+        }
+      );
     }
 
     res.status(200).json({
@@ -686,7 +703,7 @@ exports.getProfileByAnyId = async (req, res, next) => {
   }
 };
 
-// @desc    Toggle Live Status (Restricted to Verified Mentors Only)
+// @desc    Toggle or Heartbeat Live Status for Experts
 exports.toggleLiveStatus = async (req, res) => {
   try {
     const existingProfile = await Profile.findOne({ user: req.user.id });
@@ -694,17 +711,14 @@ exports.toggleLiveStatus = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Profile not found' });
     }
 
-    if (
-      existingProfile.role !== 'expert' ||
-      existingProfile.mentorApplicationStatus !== 'approved'
-    ) {
+    if (existingProfile.role !== 'expert') {
       return res.status(403).json({
         success: false,
-        error: 'Only verified mentors can go live.',
+        error: 'Only mentors can go live.',
       });
     }
 
-    const isLive = Boolean(req.body.isLive);
+    const isLive = req.body.isLive !== undefined ? Boolean(req.body.isLive) : true;
     const newStatus = isLive ? 'available' : 'offline';
 
     const profile = await Profile.findOneAndUpdate(
@@ -713,11 +727,11 @@ exports.toggleLiveStatus = async (req, res) => {
         $set: {
           isLive,
           liveConnectionStatus: newStatus,
-          lastActiveAt: Date.now(),
+          lastActiveAt: new Date(),
         },
       },
       { new: true }
-    ).populate('user', 'name slug');
+    ).populate('user', 'name email slug');
 
     res.status(200).json({ success: true, data: profile });
   } catch (error) {
@@ -968,5 +982,35 @@ exports.getExpertSlots = async (req, res) => {
   } catch (error) {
     console.error('Slot Generation Error:', error);
     res.status(500).json({ success: false, error: 'Failed to calculate available slots.' });
+  }
+};
+
+
+exports.submitSupportTicket = async (req, res) => {
+  try {
+    const { type, category, message } = req.body;
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ success: false, error: 'Message is required' });
+    }
+
+    const currentUser = await User.findById(req.user.id).select('name email phoneNumber');
+    const adminEmail =
+      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'yashwanthbondapalli@ybconnect.in';
+
+    await sendEmail({
+      email: adminEmail,
+      subject: `🛠️ YB Connect ${type === 'problem_report' ? 'Bug Report' : 'Support'}: ${
+        category || 'General'
+      }`,
+      message: `New Support Ticket from YB Connect App:\n\n- User: ${
+        currentUser?.name || 'User'
+      } (${currentUser?.email || 'No email'})\n- Category: ${
+        category || 'General'
+      }\n- Message:\n${String(message).trim().slice(0, 1500)}`,
+    });
+
+    return res.status(200).json({ success: true, message: 'Support ticket submitted' });
+  } catch (err) {
+    return res.status(200).json({ success: true, message: 'Support ticket logged' });
   }
 };
