@@ -70,10 +70,10 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 250,
+  max: (req) => (req.method === 'GET' ? 1200 : 250),
   message: {
     success: false,
-    error: 'Too many requests from this IP, please try again later.',
+    error: 'Too many requests right now, please wait a moment and try again.',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -154,6 +154,15 @@ app.use('/api/v1/profile-reports', profileReportRoutes);
 
 // Global Error Handler (Mounted AFTER all routes)
 app.use(errorHandler);
+
+// Prevent MongoDB quota/network hiccups in background jobs from crashing the Node process
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ Unhandled Promise Rejection:', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught Exception:', err?.message || err);
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {

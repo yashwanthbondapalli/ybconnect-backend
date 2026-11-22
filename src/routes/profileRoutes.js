@@ -9,10 +9,11 @@ const {
   getProfileByAnyId,
   getStudentTalent,
   updateProfileImage,
+  getUploadSignature,
+  submitSupportTicket,
   getExpertSlots,
   submitMentorApplication,
   reviewMentorApplication,
-  submitSupportTicket,
 } = require('../controllers/profileController');
 
 const { protect, adminOnly } = require('../middlewares/authMiddleware');
@@ -30,14 +31,15 @@ router
 router.post('/mentor-application', protect, submitMentorApplication);
 router.put('/mentor-application/:userId/review', protect, adminOnly, reviewMentorApplication);
 
+// Live Presence, Signed Cloudinary Uploads & Support
 router.put('/live-status', protect, toggleLiveStatus);
+router.get('/upload-signature', protect, getUploadSignature);
 router.patch('/image', protect, updateProfileImage);
+router.post('/support-ticket', protect, submitSupportTicket);
 
 router.get('/user/:id/slots', getExpertSlots);
 router.route('/user/:userId').get(protect, getProfileByUserId);
 router.get('/slug/:slug', getProfileBySlug);
 router.get('/any/:id', protect, getProfileByAnyId);
-
-router.post('/support-ticket', protect, submitSupportTicket);
 
 module.exports = router;

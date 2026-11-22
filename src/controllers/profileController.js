@@ -1,5 +1,6 @@
 // backend/src/controllers/profileController.js
 const mongoose = require('mongoose');
+const cloudinary = require('cloudinary').v2;
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const CallRequest = require('../models/CallRequest');
@@ -7,6 +8,12 @@ const generateUniqueSlug = require('../utils/generateSlug');
 const Idea = require('../models/Idea');
 const sendEmail = require('../utils/emailHelper');
 const sendPushNotification = require('../utils/pushHelper');
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const PRICING_FLOORS = {
   10: 10,
@@ -38,6 +45,25 @@ const safeJsonParse = (val, fallback) => {
     return JSON.parse(val);
   } catch (e) {
     return fallback;
+  }
+};
+
+// Extracts Cloudinary public_id from a secure_url (e.g. "yb_portfolio/project_123_456")
+const extractCloudinaryPublicId = (imageUrl) => {
+  if (typeof imageUrl !== 'string' || !imageUrl.includes('res.cloudinary.com')) {
+    return null;
+  }
+  const cleanUrl = imageUrl.split('?')[0];
+  const match = cleanUrl.match(/\/upload\/(?:v\d+\/)?(.+?)\.[a-zA-Z0-9]+$/);
+  return match ? match[1] : null;
+};
+
+const destroyCloudinaryAsset = async (publicId) => {
+  if (!publicId || !process.env.CLOUDINARY_API_SECRET) return;
+  try {
+    await cloudinary.uploader.destroy(publicId, { invalidate: true });
+  } catch (err) {
+    console.error(`Cloudinary destroy warning (${publicId}):`, err.message);
   }
 };
 
@@ -89,10 +115,11 @@ const normalizeSessionPricing = (rawPricing, fallbackRate) => {
   return normalized;
 };
 
-// @desc    Get current logged-in user's own profile (Auto-marks Experts Online on App Open!)
+// @desc    Get current logged-in user's own profile (Auto-marks Experts Online on App Open)
+// @route   GET /api/v1/profile/me
 exports.getCurrentUserProfile = async (req, res, next) => {
   try {
-    let profile = await Profile.findOne({ user: req.user.id }).populate('user', [
+    const profile = await Profile.findOne({ user: req.user.id }).populate('user', [
       'name',
       'email',
       'slug',
@@ -109,16 +136,17 @@ exports.getCurrentUserProfile = async (req, res, next) => {
 
     // Automatically mark any Expert online when they open the app
     if (profile.role === 'expert') {
+      const now = new Date();
       profile.isLive = true;
       profile.liveConnectionStatus = 'available';
-      profile.lastActiveAt = new Date();
+      profile.lastActiveAt = now;
       await Profile.updateOne(
         { _id: profile._id },
         {
           $set: {
             isLive: true,
             liveConnectionStatus: 'available',
-            lastActiveAt: profile.lastActiveAt,
+            lastActiveAt: now,
           },
         }
       );
@@ -378,7 +406,8 @@ exports.reviewMentorApplication = async (req, res, next) => {
   }
 };
 
-// @desc    Create or Update Profile
+// @desc    Create or Update Profile (Includes Cloudinary Cleanup for Removed Portfolio Covers)
+// @route   POST /api/v1/profile/me
 exports.upsertProfile = async (req, res, next) => {
   try {
     const {
@@ -598,6 +627,36 @@ exports.upsertProfile = async (req, res, next) => {
       { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
     ).populate('user', 'name email slug phoneNumber');
 
+    // Automatically delete removed or replaced portfolio images from Cloudinary
+    if (portfolio !== undefined && Array.isArray(existingProfile?.portfolio)) {
+      try {
+        const newPublicIds = new Set(
+          (Array.isArray(profileFields.portfolio) ? profileFields.portfolio : [])
+            .map((item) => extractCloudinaryPublicId(item?.imageUrl))
+            .filter(Boolean)
+        );
+
+        const removedPublicIds = existingProfile.portfolio
+          .map((item) => extractCloudinaryPublicId(item?.imageUrl))
+          .filter((pubId) => pubId && !newPublicIds.has(pubId));
+
+        if (removedPublicIds.length > 0) {
+          await Promise.all(removedPublicIds.map((pubId) => destroyCloudinaryAsset(pubId)));
+        }
+      } catch (cleanupErr) {
+        console.error('Portfolio Cloudinary cleanup warning:', cleanupErr.message);
+      }
+    }
+
+    // Automatically clean up legacy profile photo if replaced by a different Cloudinary public_id
+    if (existingProfile?.profileImage && safeProfileImage) {
+      const oldAvatarPubId = extractCloudinaryPublicId(existingProfile.profileImage);
+      const newAvatarPubId = extractCloudinaryPublicId(safeProfileImage);
+      if (oldAvatarPubId && oldAvatarPubId !== newAvatarPubId) {
+        await destroyCloudinaryAsset(oldAvatarPubId);
+      }
+    }
+
     try {
       await Idea.updateMany(
         { authorId: req.user.id },
@@ -622,6 +681,7 @@ exports.upsertProfile = async (req, res, next) => {
 };
 
 // @desc    Get profile by user ID (Public View — Private Fields Excluded)
+// @route   GET /api/v1/profile/user/:userId
 exports.getProfileByUserId = async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
@@ -643,6 +703,7 @@ exports.getProfileByUserId = async (req, res, next) => {
 };
 
 // @desc    Get profile by slug (Public View — Private Fields Excluded)
+// @route   GET /api/v1/profile/slug/:slug
 exports.getProfileBySlug = async (req, res) => {
   try {
     const slug = typeof req.params.slug === 'string' ? req.params.slug.trim().toLowerCase() : '';
@@ -679,6 +740,7 @@ exports.getProfileBySlug = async (req, res) => {
 };
 
 // @desc    Get profile by either User ID or Profile ID (Public View)
+// @route   GET /api/v1/profile/any/:id
 exports.getProfileByAnyId = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -704,6 +766,7 @@ exports.getProfileByAnyId = async (req, res, next) => {
 };
 
 // @desc    Toggle or Heartbeat Live Status for Experts
+// @route   PUT /api/v1/profile/live-status
 exports.toggleLiveStatus = async (req, res) => {
   try {
     const existingProfile = await Profile.findOne({ user: req.user.id });
@@ -741,6 +804,7 @@ exports.toggleLiveStatus = async (req, res) => {
 };
 
 // @desc    Get all Student Profiles for the Home Screen Talent Section (ReDoS-Safe & Capped)
+// @route   GET /api/v1/profile/talent
 exports.getStudentTalent = async (req, res) => {
   try {
     const rawIntent = typeof req.query.intent === 'string' ? req.query.intent.trim() : '';
@@ -760,11 +824,13 @@ exports.getStudentTalent = async (req, res) => {
 
     // 2. Fetch active users manually to avoid Mongoose populate match casting errors
     const userIds = students.map((s) => s.user).filter(Boolean);
-    const activeUsers = await User.collection.find({
-      _id: { $in: userIds },
-      isDeleted: { $ne: true },
-      accountStatus: { $nin: ['deleted', 'suspended'] },
-    }).toArray();
+    const activeUsers = await User.collection
+      .find({
+        _id: { $in: userIds },
+        isDeleted: { $ne: true },
+        accountStatus: { $nin: ['deleted', 'suspended'] },
+      })
+      .toArray();
 
     const activeUserMap = new Map(
       activeUsers.map((u) => [String(u._id), { _id: u._id, name: u.name, slug: u.slug }])
@@ -789,7 +855,8 @@ exports.getStudentTalent = async (req, res) => {
   }
 };
 
-// @desc    Auto-save just the profile picture
+// @desc    Auto-save just the profile picture (Cleans up legacy asset if public_id changed)
+// @route   PATCH /api/v1/profile/image
 exports.updateProfileImage = async (req, res) => {
   try {
     const { profileImage } = req.body;
@@ -804,6 +871,7 @@ exports.updateProfileImage = async (req, res) => {
     }
 
     const cleanImageUrl = profileImage.trim().slice(0, 500);
+    const existingProfile = await Profile.findOne({ user: req.user.id }).select('profileImage');
 
     const profile = await Profile.findOneAndUpdate(
       { user: req.user.id },
@@ -813,6 +881,14 @@ exports.updateProfileImage = async (req, res) => {
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+
+    if (existingProfile?.profileImage) {
+      const oldPubId = extractCloudinaryPublicId(existingProfile.profileImage);
+      const newPubId = extractCloudinaryPublicId(cleanImageUrl);
+      if (oldPubId && oldPubId !== newPubId) {
+        await destroyCloudinaryAsset(oldPubId);
+      }
+    }
 
     try {
       await Idea.updateMany(
@@ -827,6 +903,104 @@ exports.updateProfileImage = async (req, res) => {
   } catch (error) {
     console.error('Image Auto-Save Error:', error);
     res.status(500).json({ success: false, error: 'Failed to auto-save image' });
+  }
+};
+
+// @desc    Generate a secure, 1-hour Cloudinary signed upload signature
+// @route   GET /api/v1/profile/upload-signature?type=profile|portfolio&existingUrl=...
+exports.getUploadSignature = async (req, res) => {
+  try {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(503).json({
+        success: false,
+        error: 'Image upload service is not configured on the server.',
+      });
+    }
+
+    const uploadType = req.query.type === 'portfolio' ? 'portfolio' : 'profile';
+    const timestamp = Math.round(Date.now() / 1000);
+
+    let publicId;
+    let overwrite;
+
+    if (uploadType === 'portfolio') {
+      const existingPubId = extractCloudinaryPublicId(req.query.existingUrl);
+      const userPrefix = `yb_portfolio/project_${req.user.id}_`;
+
+      // If editing an existing signed portfolio cover owned by this user, overwrite it in-place
+      if (existingPubId && existingPubId.startsWith(userPrefix)) {
+        publicId = existingPubId;
+        overwrite = 'true';
+      } else {
+        publicId = `${userPrefix}${timestamp}_${Math.floor(Math.random() * 1000)}`;
+        overwrite = 'false';
+      }
+    } else {
+      publicId = `yb_profiles/profile_pic_${req.user.id}`;
+      overwrite = 'true';
+    }
+
+    const paramsToSign = {
+      overwrite,
+      public_id: publicId,
+      timestamp,
+    };
+
+    const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        cloudName,
+        apiKey,
+        signature,
+        timestamp: String(timestamp),
+        publicId,
+        overwrite,
+      },
+    });
+  } catch (error) {
+    console.error('Cloudinary Sign Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Could not generate upload signature.',
+    });
+  }
+};
+
+// @desc    Submit Bug Report or Help & Support Inquiry from Mobile App
+// @route   POST /api/v1/profile/support-ticket
+exports.submitSupportTicket = async (req, res) => {
+  try {
+    const { type, category, message } = req.body;
+    if (typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ success: false, error: 'Message is required' });
+    }
+
+    const currentUser = await User.findById(req.user.id).select('name email phoneNumber');
+    const adminEmail =
+      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'yashwanthbondapalli@ybconnect.in';
+
+    await sendEmail({
+      email: adminEmail,
+      subject: `🛠️ YB Connect ${type === 'problem_report' ? 'Bug Report' : 'Support'}: ${
+        category || 'General'
+      }`,
+      message: `New Support Ticket from YB Connect App:\n\n- User ID: ${req.user.id}\n- User: ${
+        currentUser?.name || 'User'
+      } (${currentUser?.email || 'No email'})\n- Phone: ${
+        currentUser?.phoneNumber || 'N/A'
+      }\n- Category: ${category || 'General'}\n- Message:\n${message.trim().slice(0, 1500)}`,
+    });
+
+    return res.status(200).json({ success: true, message: 'Support ticket submitted' });
+  } catch (err) {
+    console.error('Support Ticket Warning:', err.message);
+    return res.status(200).json({ success: true, message: 'Support ticket logged' });
   }
 };
 
@@ -865,8 +1039,8 @@ exports.getExpertSlots = async (req, res) => {
     const requestedDuration = Number(req.query.duration) || 30;
 
     const profile = await Profile.findOne({ user: expertId });
-    
-    // 🛡️ FALLBACK: If mentor hasn't configured schedule rules yet, provide default 10 AM - 6 PM IST slots!
+
+    // Fallback: If mentor hasn't configured schedule rules yet, provide default 10 AM - 6 PM IST slots
     let days = profile?.scheduleRules?.days;
     if (!profile || !profile.scheduleRules || !Array.isArray(days) || days.length === 0) {
       days = [1, 2, 3, 4, 5].map((d) => ({
@@ -890,14 +1064,16 @@ exports.getExpertSlots = async (req, res) => {
     const horizonMs = now.getTime() + 14 * 24 * 60 * 60 * 1000;
 
     // Use native collection find to prevent any Mongoose query cast errors
-    const existingRequests = await CallRequest.collection.find({
-      recipient: new mongoose.Types.ObjectId(expertId),
-      status: 'accepted',
-      scheduledAt: {
-        $gte: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-        $lte: new Date(horizonMs),
-      },
-    }).toArray();
+    const existingRequests = await CallRequest.collection
+      .find({
+        recipient: new mongoose.Types.ObjectId(expertId),
+        status: 'accepted',
+        scheduledAt: {
+          $gte: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+          $lte: new Date(horizonMs),
+        },
+      })
+      .toArray();
 
     const bookedIntervals = existingRequests.map((reqItem) => {
       const startMs = new Date(reqItem.scheduledAt).getTime();
@@ -982,35 +1158,5 @@ exports.getExpertSlots = async (req, res) => {
   } catch (error) {
     console.error('Slot Generation Error:', error);
     res.status(500).json({ success: false, error: 'Failed to calculate available slots.' });
-  }
-};
-
-
-exports.submitSupportTicket = async (req, res) => {
-  try {
-    const { type, category, message } = req.body;
-    if (!message || !String(message).trim()) {
-      return res.status(400).json({ success: false, error: 'Message is required' });
-    }
-
-    const currentUser = await User.findById(req.user.id).select('name email phoneNumber');
-    const adminEmail =
-      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'yashwanthbondapalli@ybconnect.in';
-
-    await sendEmail({
-      email: adminEmail,
-      subject: `🛠️ YB Connect ${type === 'problem_report' ? 'Bug Report' : 'Support'}: ${
-        category || 'General'
-      }`,
-      message: `New Support Ticket from YB Connect App:\n\n- User: ${
-        currentUser?.name || 'User'
-      } (${currentUser?.email || 'No email'})\n- Category: ${
-        category || 'General'
-      }\n- Message:\n${String(message).trim().slice(0, 1500)}`,
-    });
-
-    return res.status(200).json({ success: true, message: 'Support ticket submitted' });
-  } catch (err) {
-    return res.status(200).json({ success: true, message: 'Support ticket logged' });
   }
 };
