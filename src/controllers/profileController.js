@@ -48,6 +48,34 @@ const safeJsonParse = (val, fallback) => {
   }
 };
 
+const sanitizeString = (val, maxLen = 300) => {
+  if (typeof val !== 'string') return '';
+  return val.trim().slice(0, maxLen);
+};
+
+const sanitizeStringArray = (val, maxItems = 25, maxItemLen = 80) => {
+  const rawList = Array.isArray(val)
+    ? val
+    : typeof val === 'string'
+    ? val.split(',')
+    : [];
+
+  const seen = new Set();
+  const cleaned = [];
+
+  for (const item of rawList) {
+    const str = String(item || '').trim().slice(0, maxItemLen);
+    if (!str) continue;
+    const key = str.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(str);
+    if (cleaned.length >= maxItems) break;
+  }
+
+  return cleaned;
+};
+
 // Extracts Cloudinary public_id from a secure_url (e.g. "yb_portfolio/project_123_456")
 const extractCloudinaryPublicId = (imageUrl) => {
   if (typeof imageUrl !== 'string' || !imageUrl.includes('res.cloudinary.com')) {
@@ -174,6 +202,7 @@ exports.submitMentorApplication = async (req, res, next) => {
       yearsOfExperience,
       linkedinUrl,
       portfolioUrl,
+      proofLinks,
       preferredInterviewTime,
       whyMentor,
     } = req.body;
@@ -238,22 +267,36 @@ exports.submitMentorApplication = async (req, res, next) => {
       submittedAt: new Date(),
     };
 
+    const setPayload = {
+      phoneNumber: applicationPayload.phoneNumber,
+      designation: applicationPayload.designation,
+      companyName: applicationPayload.companyName,
+      category: applicationPayload.category,
+      yearsOfExperience: applicationPayload.yearsOfExperience,
+      'socialLinks.linkedin': applicationPayload.linkedinUrl,
+      mentorApplicationStatus: 'pending',
+      mentorApplication: applicationPayload,
+    };
+
+    if (applicationPayload.portfolioUrl) {
+      setPayload['socialLinks.website'] = applicationPayload.portfolioUrl;
+    }
+    if (proofLinks && typeof proofLinks === 'object') {
+      if (typeof proofLinks.youtube === 'string' && proofLinks.youtube.trim()) {
+        setPayload['socialLinks.youtube'] = proofLinks.youtube.trim().slice(0, 300);
+      }
+      if (typeof proofLinks.instagram === 'string' && proofLinks.instagram.trim()) {
+        setPayload['socialLinks.instagram'] = proofLinks.instagram.trim().slice(0, 300);
+      }
+      if (typeof proofLinks.xUrl === 'string' && proofLinks.xUrl.trim()) {
+        setPayload['socialLinks.xUrl'] = proofLinks.xUrl.trim().slice(0, 300);
+      }
+    }
+
     const updatedProfile = await Profile.findOneAndUpdate(
       { user: req.user.id },
       {
-        $set: {
-          phoneNumber: applicationPayload.phoneNumber,
-          designation: applicationPayload.designation,
-          companyName: applicationPayload.companyName,
-          category: applicationPayload.category,
-          yearsOfExperience: applicationPayload.yearsOfExperience,
-          'socialLinks.linkedin': applicationPayload.linkedinUrl,
-          ...(applicationPayload.portfolioUrl
-            ? { 'socialLinks.website': applicationPayload.portfolioUrl }
-            : {}),
-          mentorApplicationStatus: 'pending',
-          mentorApplication: applicationPayload,
-        },
+        $set: setPayload,
         $setOnInsert: {
           role: 'student',
         },
@@ -274,7 +317,7 @@ exports.submitMentorApplication = async (req, res, next) => {
         sendEmail({
           email: adminEmail,
           subject: `🚀 New Mentor Verification Application: ${cleanName} (${applicationPayload.companyName})`,
-          message: `New Mentor Application Submitted!\n\n- User ID: ${req.user.id}\n- Name: ${cleanName}\n- Email: ${currentUser.email}\n- Phone: ${applicationPayload.phoneNumber}\n- Role: ${applicationPayload.designation} @ ${applicationPayload.companyName}\n- Domain: ${applicationPayload.category}\n- Experience: ${applicationPayload.yearsOfExperience} years\n- LinkedIn: ${applicationPayload.linkedinUrl}\n- Portfolio: ${applicationPayload.portfolioUrl || 'N/A'}\n- Preferred Interview Window: ${applicationPayload.preferredInterviewTime}\n- Pitch: ${applicationPayload.whyMentor}`,
+          message: `New Mentor Application Submitted!\n\n- User ID: ${req.user.id}\n- Name: ${cleanName}\n- Email: ${currentUser.email}\n- Phone: ${applicationPayload.phoneNumber}\n- Role: ${applicationPayload.designation} @ ${applicationPayload.companyName}\n- Domain: ${applicationPayload.category}\n- Experience: ${applicationPayload.yearsOfExperience} years\n- LinkedIn: ${applicationPayload.linkedinUrl}\n- Portfolio: ${applicationPayload.portfolioUrl || 'N/A'}\n- YouTube: ${proofLinks?.youtube || 'N/A'}\n- Instagram: ${proofLinks?.instagram || 'N/A'}\n- X / Twitter: ${proofLinks?.xUrl || 'N/A'}\n- Preferred Interview Window: ${applicationPayload.preferredInterviewTime}\n- Pitch: ${applicationPayload.whyMentor}`,
         }),
       ]);
     } catch (emailErr) {
@@ -406,7 +449,7 @@ exports.reviewMentorApplication = async (req, res, next) => {
   }
 };
 
-// @desc    Create or Update Profile (Includes Cloudinary Cleanup for Removed Portfolio Covers)
+// @desc    Create or Update Profile (Universal Tier A + Tier B + Cloudinary Cleanup)
 // @route   POST /api/v1/profile/me
 exports.upsertProfile = async (req, res, next) => {
   try {
@@ -416,6 +459,8 @@ exports.upsertProfile = async (req, res, next) => {
       university,
       major,
       minor,
+      learnerStage,
+      learningGoals,
       studentLookingFor,
       techInterests,
       techSkills,
@@ -431,6 +476,11 @@ exports.upsertProfile = async (req, res, next) => {
       companyName,
       shortDescription,
       whyBookMe,
+      workType,
+      availabilityTag,
+      targetAudience,
+      helpTopics,
+      sessionPrepNote,
       category,
       city,
       bio,
@@ -505,33 +555,64 @@ exports.upsertProfile = async (req, res, next) => {
       safeProfileImage = profileImage.trim();
     }
 
+    // Build $set safely: only overwrite fields explicitly provided so partial updates never wipe data
     const profileFields = {
       user: req.user.id,
       role: effectiveRole,
-      designation,
-      companyName,
-      shortDescription,
-      whyBookMe,
-      category,
-      city,
-      bio,
-      yearsOfExperience: Math.max(0, Math.min(60, Number(yearsOfExperience) || 0)),
-      achievements,
       hourlyRate: derivedBaseRate,
       sessionPricing: validatedPricing,
       profileImage: safeProfileImage,
       'zoomCredentials.isConnected': true,
-      yearOfStudy,
-      university,
-      major,
-      minor,
-      studentLookingFor,
-      techInterests,
-      studentProjects,
-      internships,
-      certifications,
-      leadership,
     };
+
+    // Shared & Expert String Fields
+    if (designation !== undefined) profileFields.designation = sanitizeString(designation, 100);
+    if (companyName !== undefined) profileFields.companyName = sanitizeString(companyName, 100);
+    if (shortDescription !== undefined) {
+      profileFields.shortDescription = sanitizeString(shortDescription, 150);
+    }
+    if (whyBookMe !== undefined) profileFields.whyBookMe = sanitizeString(whyBookMe, 800);
+    if (workType !== undefined) profileFields.workType = sanitizeString(workType, 60);
+    if (availabilityTag !== undefined) {
+      profileFields.availabilityTag = sanitizeString(availabilityTag, 60);
+    }
+    if (sessionPrepNote !== undefined) {
+      profileFields.sessionPrepNote = sanitizeString(sessionPrepNote, 400);
+    }
+    if (category !== undefined) profileFields.category = sanitizeString(category, 80);
+    if (city !== undefined) profileFields.city = sanitizeString(city, 80);
+    if (bio !== undefined) profileFields.bio = sanitizeString(bio, 800);
+    if (achievements !== undefined) profileFields.achievements = sanitizeString(achievements, 1500);
+
+    if (yearsOfExperience !== undefined && yearsOfExperience !== '') {
+      profileFields.yearsOfExperience = Math.max(0, Math.min(60, Number(yearsOfExperience) || 0));
+    }
+
+    // Shared Education & Credentials (Now saved for both Experts & Learners)
+    if (university !== undefined) profileFields.university = sanitizeString(university, 140);
+    if (major !== undefined) profileFields.major = sanitizeString(major, 120);
+    if (minor !== undefined) profileFields.minor = sanitizeString(minor, 120);
+    if (yearOfStudy !== undefined) profileFields.yearOfStudy = sanitizeString(yearOfStudy, 40);
+    if (certifications !== undefined) {
+      profileFields.certifications = sanitizeString(certifications, 2000);
+    }
+
+    // Learner / Student Fields (Universal)
+    if (learnerStage !== undefined) profileFields.learnerStage = sanitizeString(learnerStage, 60);
+    if (learningGoals !== undefined) {
+      profileFields.learningGoals = sanitizeString(learningGoals, 400);
+    }
+    if (studentLookingFor !== undefined) {
+      profileFields.studentLookingFor = sanitizeString(studentLookingFor, 800);
+    }
+    if (techInterests !== undefined) {
+      profileFields.techInterests = sanitizeString(techInterests, 500);
+    }
+    if (studentProjects !== undefined) {
+      profileFields.studentProjects = sanitizeString(studentProjects, 2000);
+    }
+    if (internships !== undefined) profileFields.internships = sanitizeString(internships, 2000);
+    if (leadership !== undefined) profileFields.leadership = sanitizeString(leadership, 2000);
 
     if (typeof phoneNumber === 'string' && phoneNumber.trim() !== '') {
       profileFields.phoneNumber = phoneNumber.trim().slice(0, 15);
@@ -569,35 +650,24 @@ exports.upsertProfile = async (req, res, next) => {
       };
     }
 
-    if (skills) {
-      profileFields.skills = Array.isArray(skills)
-        ? skills
-        : String(skills).split(',').map((s) => s.trim()).filter(Boolean);
+    // Array / Chip Fields (Deduplicated & Length-Capped)
+    if (skills !== undefined) profileFields.skills = sanitizeStringArray(skills, 25, 50);
+    if (techSkills !== undefined) {
+      profileFields.techSkills = sanitizeStringArray(techSkills, 25, 50);
     }
-    if (techSkills) {
-      profileFields.techSkills = Array.isArray(techSkills)
-        ? techSkills
-        : String(techSkills).split(',').map((s) => s.trim()).filter(Boolean);
+    if (softSkills !== undefined) {
+      profileFields.softSkills = sanitizeStringArray(softSkills, 20, 50);
     }
-    if (softSkills) {
-      profileFields.softSkills = Array.isArray(softSkills)
-        ? softSkills
-        : String(softSkills).split(',').map((s) => s.trim()).filter(Boolean);
+    if (languages !== undefined) profileFields.languages = sanitizeStringArray(languages, 15, 40);
+    if (industries !== undefined) {
+      profileFields.industries = sanitizeStringArray(industries, 20, 50);
     }
-    if (languages) {
-      profileFields.languages = Array.isArray(languages)
-        ? languages
-        : String(languages).split(',').map((l) => l.trim()).filter(Boolean);
+    if (interests !== undefined) profileFields.interests = sanitizeStringArray(interests, 20, 50);
+    if (targetAudience !== undefined) {
+      profileFields.targetAudience = sanitizeStringArray(targetAudience, 10, 50);
     }
-    if (industries) {
-      profileFields.industries = Array.isArray(industries)
-        ? industries
-        : String(industries).split(',').map((i) => i.trim()).filter(Boolean);
-    }
-    if (interests) {
-      profileFields.interests = Array.isArray(interests)
-        ? interests
-        : String(interests).split(',').map((i) => i.trim()).filter(Boolean);
+    if (helpTopics !== undefined) {
+      profileFields.helpTopics = sanitizeStringArray(helpTopics, 8, 80);
     }
 
     if (experience !== undefined) {
@@ -610,14 +680,38 @@ exports.upsertProfile = async (req, res, next) => {
       profileFields.portfolio = safeJsonParse(portfolio, []);
     }
 
+    // Clean Social & Proof Links (Includes YouTube; keeps GitHub/Coding link for Learners)
     if (socialLinks && typeof socialLinks === 'object') {
+      const existingLinks = existingProfile?.socialLinks || {};
       profileFields.socialLinks = {
-        linkedin: socialLinks.linkedin || '',
-        instagram: socialLinks.instagram || '',
-        xUrl: socialLinks.xUrl || '',
-        website: socialLinks.website || '',
-        github: socialLinks.github || '',
-        leetcode: socialLinks.leetcode || '',
+        linkedin:
+          socialLinks.linkedin !== undefined
+            ? sanitizeString(socialLinks.linkedin, 300)
+            : existingLinks.linkedin || '',
+        website:
+          socialLinks.website !== undefined
+            ? sanitizeString(socialLinks.website, 300)
+            : existingLinks.website || '',
+        youtube:
+          socialLinks.youtube !== undefined
+            ? sanitizeString(socialLinks.youtube, 300)
+            : existingLinks.youtube || '',
+        instagram:
+          socialLinks.instagram !== undefined
+            ? sanitizeString(socialLinks.instagram, 300)
+            : existingLinks.instagram || '',
+        xUrl:
+          socialLinks.xUrl !== undefined
+            ? sanitizeString(socialLinks.xUrl, 300)
+            : existingLinks.xUrl || '',
+        github:
+          socialLinks.github !== undefined
+            ? sanitizeString(socialLinks.github, 300)
+            : existingLinks.github || '',
+        leetcode:
+          socialLinks.leetcode !== undefined
+            ? sanitizeString(socialLinks.leetcode, 300)
+            : existingLinks.leetcode || '',
       };
     }
 

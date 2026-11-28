@@ -59,18 +59,27 @@ const ProfileSchema = new mongoose.Schema(
     // -- ABOUT (SHARED) --
     bio: { type: String, maxLength: 800 },
 
-    // -- EXPERT ONLY: ABOUT & PITCH --
+    // -- EXPERT: UNIVERSAL LINKEDIN-GRADE PROFILE FIELDS (TIER A & B) --
     whyBookMe: { type: String, maxLength: 800 },
+    workType: { type: String, trim: true, maxLength: 60 },
+    availabilityTag: { type: String, trim: true, maxLength: 60 },
+    targetAudience: { type: [String], default: [] },
+    helpTopics: { type: [String], default: [] },
+    sessionPrepNote: { type: String, trim: true, maxLength: 400 },
 
-    // -- STUDENT ONLY: ACADEMICS & RESUME --
+    // -- EDUCATION & CREDENTIALS (SHARED: EXPERTS & LEARNERS) --
     university: { type: String, trim: true },
     major: { type: String, trim: true },
     minor: { type: String, trim: true },
     yearOfStudy: { type: String, trim: true },
+    certifications: { type: String, maxLength: 2000 },
+
+    // -- LEARNER / STUDENT SPECIFIC (UNIVERSAL — TECH & NON-TECH) --
+    learnerStage: { type: String, trim: true, maxLength: 60 },
+    learningGoals: { type: String, trim: true, maxLength: 400 },
     studentLookingFor: { type: String, maxLength: 800 },
     studentProjects: { type: String, maxLength: 2000 },
     internships: { type: String, maxLength: 2000 },
-    certifications: { type: String, maxLength: 2000 },
     leadership: { type: String, maxLength: 2000 },
     techInterests: { type: String, trim: true },
 
@@ -176,12 +185,13 @@ const ProfileSchema = new mongoose.Schema(
     achievements: { type: String },
     profileImage: { type: String, default: 'default-avatar.png' },
     socialLinks: {
-      linkedin: String,
-      instagram: String,
-      xUrl: String,
-      website: String,
-      github: String,
-      leetcode: String,
+      linkedin: { type: String, trim: true, default: '' },
+      website: { type: String, trim: true, default: '' },
+      youtube: { type: String, trim: true, default: '' },
+      instagram: { type: String, trim: true, default: '' },
+      xUrl: { type: String, trim: true, default: '' },
+      github: { type: String, trim: true, default: '' },
+      leetcode: { type: String, trim: true, default: '' }, // Coding platform link (LeetCode / HackerRank / CodeChef)
     },
 
     // -- INSTANT SOLVER --
